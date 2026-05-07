@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="P2-Record — Linux game clip recorder. Ring buffer, VAAPI hardware encoding, Wayland & X11, no browser, no cloud." />
   <title>P2-Record — Linux Game Clip Recorder</title>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <style>
     /* ── TOKENS ── */
     :root {
@@ -260,6 +261,8 @@
       border: none;
     }
     .btn:hover { opacity: .9; transform: translateY(-2px); text-decoration: none; }
+    .btn i { width: 17px; height: 17px; flex-shrink: 0; }
+    .btn i svg { width: 17px; height: 17px; stroke-width: 2.2; }
     .btn-primary {
       background: linear-gradient(135deg, var(--accent) 0%, #9b7dff 100%);
       color: #fff;
@@ -366,7 +369,8 @@
     }
     .feat-card:hover { border-color: var(--accent); transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,.4); }
     .feat-card:hover::after { opacity: 1; }
-    .feat-icon { font-size: 1.7rem; margin-bottom: 14px; display: block; }
+    .feat-icon { width: 40px; height: 40px; margin-bottom: 16px; display: block; color: var(--accent2); }
+    .feat-icon svg { width: 100%; height: 100%; stroke-width: 1.5; }
     .feat-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
     .feat-card p { color: var(--muted); font-size: .88rem; line-height: 1.6; }
 
@@ -724,8 +728,8 @@
         Kein Geräusch, kein Overlay, kein Abo.
       </p>
       <div class="btn-row">
-        <a href="#install" class="btn btn-primary" data-i18n="hero.btn1">⬇ Installieren</a>
-        <a href="#how" class="btn btn-ghost" data-i18n="hero.btn2">Wie funktioniert's?</a>
+        <a href="#install" class="btn btn-primary"><i data-lucide="download"></i><span data-i18n="hero.btn1">Installieren</span></a>
+        <a href="#how" class="btn btn-ghost"><i data-lucide="circle-play"></i><span data-i18n="hero.btn2">Wie funktioniert's?</span></a>
       </div>
     </div>
 
@@ -782,42 +786,42 @@
 
     <div class="feat-grid">
       <div class="feat-card reveal">
-        <span class="feat-icon">🔴</span>
+        <span class="feat-icon"><i data-lucide="circle-dot"></i></span>
         <h3 data-i18n="feat.1.h">Ringpuffer-Aufnahme</h3>
         <p data-i18n="feat.1.p">FFmpeg läuft ständig im Hintergrund und behält die letzten N Sekunden. Hotkey drücken — fertig. Nichts geht verloren.</p>
       </div>
       <div class="feat-card reveal">
-        <span class="feat-icon">⚡</span>
+        <span class="feat-icon"><i data-lucide="zap"></i></span>
         <h3 data-i18n="feat.2.h">VAAPI Hardware-Encoding</h3>
         <p data-i18n="feat.2.p">AMD/Intel GPU via VAAPI (<code>h264_vaapi</code>) — nahezu null CPU-Last während der Aufnahme. Automatischer Fallback auf Software.</p>
       </div>
       <div class="feat-card reveal">
-        <span class="feat-icon">🖥</span>
+        <span class="feat-icon"><i data-lucide="monitor"></i></span>
         <h3 data-i18n="feat.3.h">Wayland &amp; X11</h3>
         <p data-i18n="feat.3.p">Wayland: xdg-desktop-portal → PipeWire → GStreamer. X11: direktes x11grab. Wird automatisch erkannt — kein Setup nötig.</p>
       </div>
       <div class="feat-card reveal">
-        <span class="feat-icon">🔊</span>
+        <span class="feat-icon"><i data-lucide="volume-2"></i></span>
         <h3 data-i18n="feat.4.h">Flexibles Audio</h3>
         <p data-i18n="feat.4.p">Kein Audio · Desktop · Mikrofon · Beides gleichzeitig via FFmpeg amix. Funktioniert mit PipeWire-Pulse und PulseAudio.</p>
       </div>
       <div class="feat-card reveal">
-        <span class="feat-icon">⌨️</span>
+        <span class="feat-icon"><i data-lucide="keyboard"></i></span>
         <h3 data-i18n="feat.5.h">Globale Hotkeys</h3>
         <p data-i18n="feat.5.p">evdev-Backend: funktioniert in jedem Game, auch bei gegrabbten Inputs. X11-Fallback. Frei konfigurierbar in den Einstellungen.</p>
       </div>
       <div class="feat-card reveal">
-        <span class="feat-icon">🗂</span>
+        <span class="feat-icon"><i data-lucide="folder-open"></i></span>
         <h3 data-i18n="feat.6.h">Clip-Bibliothek</h3>
         <p data-i18n="feat.6.p">Alle Clips mit Vorschaubild, Länge und Datum. Direkt öffnen oder löschen — ohne Dateimanager.</p>
       </div>
       <div class="feat-card reveal">
-        <span class="feat-icon">🌍</span>
+        <span class="feat-icon"><i data-lucide="globe"></i></span>
         <h3 data-i18n="feat.7.h">Deutsch &amp; Englisch</h3>
         <p data-i18n="feat.7.p">Vollständige UI in DE und EN, umschaltbar in den Einstellungen. Kein hartcodierter Text — komplett i18n.</p>
       </div>
       <div class="feat-card reveal">
-        <span class="feat-icon">🎨</span>
+        <span class="feat-icon"><i data-lucide="layout-dashboard"></i></span>
         <h3 data-i18n="feat.8.h">Natives GTK4-Design</h3>
         <p data-i18n="feat.8.p">Libadwaita-Widgets, Dark Mode, responsive Layout. Passt sich dem System-Theme an — sieht auf GNOME nativ aus.</p>
       </div>
@@ -1070,7 +1074,7 @@ const STRINGS = {
   'hero.h1':    { de: 'Game Clips ohne<br><span class="accent">Browser. Ohne Cloud.</span>', en: 'Game clips without<br><span class="accent">a browser. Without cloud.</span>' },
   'hero.sub':   { de: 'P2-Record nimmt dein Gameplay ununterbrochen im Hintergrund auf — drück den Hotkey und die letzten Sekunden sind gespeichert. Kein Geräusch, kein Overlay, kein Abo.',
                   en: 'P2-Record records your gameplay continuously in the background — press the hotkey and the last seconds are saved. No noise, no overlay, no subscription.' },
-  'hero.btn1':  { de: '⬇ Installieren', en: '⬇ Install' },
+  'hero.btn1':  { de: 'Installieren', en: 'Install' },
   'hero.btn2':  { de: "Wie funktioniert's?", en: 'How does it work?' },
   'hero.stat1': { de: 'CPU-Overhead (VAAPI)', en: 'CPU overhead (VAAPI)' },
   'hero.stat2': { de: 'Segmentgröße',         en: 'Segment size' },
@@ -1228,6 +1232,9 @@ document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 const saved = localStorage.getItem('p2r-lang');
 if (saved && (saved === 'de' || saved === 'en')) currentLang = saved;
 applyLang();
+
+/* ── icons ── */
+lucide.createIcons();
 </script>
 </body>
 </html>
