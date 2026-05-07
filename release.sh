@@ -131,10 +131,6 @@ push_aur() {
     trap "rm -rf $AUR_TMPDIR" EXIT
 
     info "Preparing AUR push..."
-    cp "$PKGBUILD" "$AUR_TMPDIR/PKGBUILD"
-    cp "$SRCINFO"  "$AUR_TMPDIR/.SRCINFO"
-
-    # Push only PKGBUILD + .SRCINFO to AUR remote (sparse approach)
     AUR_URL=$(git remote get-url aur)
     git clone "$AUR_URL" "$AUR_TMPDIR/aur-repo" 2>/dev/null || {
         mkdir -p "$AUR_TMPDIR/aur-repo"
@@ -142,10 +138,11 @@ push_aur() {
         git -C "$AUR_TMPDIR/aur-repo" remote add origin "$AUR_URL"
     }
 
-    cp "$PKGBUILD" "$AUR_TMPDIR/aur-repo/PKGBUILD"
-    cp "$SRCINFO"  "$AUR_TMPDIR/aur-repo/.SRCINFO"
+    cp "$PKGBUILD"                       "$AUR_TMPDIR/aur-repo/PKGBUILD"
+    cp "$SRCINFO"                        "$AUR_TMPDIR/aur-repo/.SRCINFO"
+    cp "$ROOT/python/p2record.install"   "$AUR_TMPDIR/aur-repo/p2record.install"
 
-    git -C "$AUR_TMPDIR/aur-repo" add PKGBUILD .SRCINFO
+    git -C "$AUR_TMPDIR/aur-repo" add PKGBUILD .SRCINFO p2record.install
     if git -C "$AUR_TMPDIR/aur-repo" diff --cached --quiet; then
         warn "AUR: no changes in PKGBUILD/.SRCINFO"
     else
