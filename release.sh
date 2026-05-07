@@ -108,7 +108,7 @@ fi
 
 # ── push to GitHub ────────────────────────────────────────────────────────────
 info "Pushing to GitHub..."
-git push origin main --tags
+git push origin main "$TAG"
 ok "GitHub up to date"
 
 # ── regenerate .SRCINFO ───────────────────────────────────────────────────────
