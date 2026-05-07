@@ -3,7 +3,7 @@ import threading
 import urllib.request
 from typing import Callable, Optional
 
-CURRENT_VERSION = '0.2.6'
+CURRENT_VERSION = '0.2.7'
 _TAGS_URL = 'https://api.github.com/repos/Varionetzwerk/p2record/tags'
 
 
@@ -19,7 +19,11 @@ def is_newer(latest: str) -> bool:
 
 
 def check_for_update(callback: Callable[[Optional[str]], None]) -> None:
-    """Background check. Calls callback(latest_tag) if newer, else callback(None)."""
+    """Background check. Calls callback with:
+      - version string  → newer version available
+      - ''              → up to date
+      - None            → network error / no result
+    """
     def _run():
         try:
             req = urllib.request.Request(
@@ -32,7 +36,7 @@ def check_for_update(callback: Callable[[Optional[str]], None]) -> None:
                 callback(None)
                 return
             latest = tags[0]['name'].lstrip('v')
-            callback(latest if is_newer(latest) else None)
+            callback(latest if is_newer(latest) else '')
         except Exception:
             callback(None)
 

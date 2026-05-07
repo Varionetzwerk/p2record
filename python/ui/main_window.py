@@ -80,9 +80,23 @@ class MainWindow(Adw.ApplicationWindow):
         return False  # run once
 
     def _on_update_result(self, latest: Optional[str]) -> None:
-        if not latest:
-            return
-        GLib.idle_add(self._show_update_banner, latest)
+        if latest is None:
+            GLib.idle_add(self._set_version_status, 'error', '')
+        elif latest == '':
+            GLib.idle_add(self._set_version_status, 'current', '')
+        else:
+            GLib.idle_add(self._show_update_banner, latest)
+            GLib.idle_add(self._set_version_status, 'update', latest)
+
+    def _set_version_status(self, state: str, version: str) -> bool:
+        from core.updater import CURRENT_VERSION
+        if state == 'current':
+            self._version_label.set_text(t('update.uptodate', version=CURRENT_VERSION))
+        elif state == 'update':
+            self._version_label.set_text(t('update.newer', version=version))
+        else:
+            self._version_label.set_text(t('update.error'))
+        return False
 
     def _show_update_banner(self, version: str) -> bool:
         self._update_banner.set_title(t('update.available', version=version))
@@ -176,9 +190,16 @@ class MainWindow(Adw.ApplicationWindow):
         self._rec_indicator.add_css_class('rec-indicator')
         self._rec_indicator.add_css_class('rec-off')
         self._rec_indicator.set_margin_start(20)
-        self._rec_indicator.set_margin_bottom(20)
+        self._rec_indicator.set_margin_bottom(4)
         self._rec_indicator.set_halign(Gtk.Align.START)
         box.append(self._rec_indicator)
+
+        self._version_label = Gtk.Label(label=t('update.checking'))
+        self._version_label.add_css_class('dim-label')
+        self._version_label.set_margin_start(20)
+        self._version_label.set_margin_bottom(16)
+        self._version_label.set_halign(Gtk.Align.START)
+        box.append(self._version_label)
 
         return box
 

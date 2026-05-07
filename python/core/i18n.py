@@ -11,13 +11,17 @@ _STRINGS: dict = {
     'app.subtitle': {'de': 'Game Clip Recorder', 'en': 'Game Clip Recorder'},
 
     # ── Update banner ─────────────────────────────────────────────────────────
-    'update.available': {'de': 'Update verfügbar — Version {version}',
-                         'en': 'Update available — version {version}'},
-    'update.btn':       {'de': 'Wie updaten?', 'en': 'How to update?'},
+    'update.available':    {'de': 'Update verfügbar — Version {version}',
+                            'en': 'Update available — version {version}'},
+    'update.btn':          {'de': 'Wie updaten?', 'en': 'How to update?'},
     'update.dialog.title': {'de': 'Update installieren', 'en': 'Install update'},
     'update.dialog.body':  {'de': 'Führe folgenden Befehl im Terminal aus:',
-                             'en': 'Run the following command in your terminal:'},
+                            'en': 'Run the following command in your terminal:'},
     'update.dialog.close': {'de': 'Schließen', 'en': 'Close'},
+    'update.checking':     {'de': 'Prüfe auf Updates…', 'en': 'Checking for updates…'},
+    'update.uptodate':     {'de': 'v{version} · Aktuell', 'en': 'v{version} · Up to date'},
+    'update.newer':        {'de': 'v{version} verfügbar', 'en': 'v{version} available'},
+    'update.error':        {'de': 'Update-Prüfung fehlgeschlagen', 'en': 'Update check failed'},
 
     # ── Navigation / sidebar ──────────────────────────────────────────────────
     'nav.dashboard': {'de': 'Dashboard',       'en': 'Dashboard'},
