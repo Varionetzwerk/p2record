@@ -83,6 +83,11 @@ read -rp "Proceed? [y/N] " CONFIRM
 [[ "${CONFIRM,,}" == "y" ]] || { echo "Aborted."; exit 0; }
 echo ""
 
+# ── bump CURRENT_VERSION in updater.py ───────────────────────────────────────
+info "Updating CURRENT_VERSION to $NEW_VERSION in updater.py..."
+sed -i "s/CURRENT_VERSION = '[^']*'/CURRENT_VERSION = '$NEW_VERSION'/" "$ROOT/python/core/updater.py"
+ok "CURRENT_VERSION = '$NEW_VERSION'"
+
 # ── stage & commit ────────────────────────────────────────────────────────────
 if [[ -n "$(git status --porcelain)" ]]; then
     info "Staging all changes..."
