@@ -64,6 +64,7 @@ class Recorder:
         self._portal_pending = False       # True while waiting for portal callback
         self._portal_stop_event: Optional[threading.Event] = None
         self._using_vaapi = False
+        self._saving = False                       # True while save_clip is running
         self._cleanup_timer_id: Optional[int] = None
         self._monitor_timer_id: Optional[int] = None
 
@@ -149,6 +150,13 @@ class Recorder:
         if not self._segment_dir:
             return None
 
+        self._saving = True
+        try:
+            return self._do_save_clip(clip_duration, game_name)
+        finally:
+            self._saving = False
+
+    def _do_save_clip(self, clip_duration: int, game_name: Optional[str]) -> Optional[str]:
         import time
 
         def _size(p: Path) -> int:
@@ -210,6 +218,7 @@ class Recorder:
             return None
         finally:
             os.unlink(concat_list)
+            self._saving = False
 
     def get_buffer_fill(self) -> float:
         if not self._segment_dir or not self._is_recording:
@@ -577,6 +586,8 @@ class Recorder:
     def _cleanup_segments(self) -> bool:
         if not self._segment_dir or not self._is_recording:
             return False
+        if self._saving:
+            return True  # skip this tick, retry next
         buf = self._settings.get('buffer_duration', 120)
         # +2: one segment currently being written + one safety margin for save_clip
         max_segs = math.ceil(buf / SEGMENT_SECS) + 2
