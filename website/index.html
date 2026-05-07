@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="de" data-lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="P2-Record — Linux game clip recorder. Ring buffer, VAAPI hardware encoding, Wayland & X11, no browser, no cloud." />
+  <title>P2-Record — Linux Game Clip Recorder</title>
+  <style>
+    /* ── TOKENS ── */
+    :root {
+      --bg:       #0b0b10;
+      --bg2:      #0f0f16;
+      --surface:  #14141c;
+      --surface2: #1c1c28;
+      --surface3: #232332;
+      --accent:   #7c6af7;
+      --accent2:  #a89df9;
+      --accent3:  #c4bafc;
+      --red:      #e05474;
+      --green:    #4ade80;
+      --text:     #e4e4f0;
+      --muted:    #7878a0;
+      --muted2:   #5a5a7a;
+      --border:   #252535;
+      --border2:  #1e1e2e;
+      --radius:   14px;
+      --radius-sm:8px;
+      --max-w:    1000px;
+      --shadow:   0 8px 40px rgba(0,0,0,.55);
+    }
+
+    /* ── RESET ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: 'Fira Code', 'Cascadia Code', monospace;
+      font-size: .85em;
+      background: var(--surface3);
+      padding: 1px 6px;
+      border-radius: 4px;
+      color: var(--accent3);
+    }
+
+    /* ── REVEAL ANIMATION ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(22px);
+      transition: opacity .6s ease, transform .6s ease;
+    }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      background: rgba(11,11,16,.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      font-size: 1.05rem;
+      color: var(--text);
+      letter-spacing: -.01em;
+      flex-shrink: 0;
+    }
+    .nav-logo .rec-dot {
+      width: 11px; height: 11px;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 10px var(--red), 0 0 4px var(--red);
+      animation: blink 2s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    .nav-links {
+      list-style: none;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .nav-links a {
+      color: var(--muted);
+      font-size: .88rem;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      transition: color .2s, background .2s;
+    }
+    .nav-links a:hover { color: var(--text); background: var(--surface2); text-decoration: none; }
+
+    .nav-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+    /* language toggle */
+    .lang-toggle {
+      display: flex;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .lang-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: .8rem;
+      font-weight: 700;
+      padding: 5px 11px;
+      cursor: pointer;
+      letter-spacing: .04em;
+      transition: color .2s, background .2s;
+    }
+    .lang-btn.active { background: var(--accent); color: #fff; }
+    .lang-btn:hover:not(.active) { color: var(--text); }
+
+    /* hamburger */
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+    }
+    .hamburger span { display: block; width: 22px; height: 2px; background: var(--text); border-radius: 2px; transition: all .25s; }
+
+    /* mobile menu */
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      inset: 58px 0 0;
+      background: rgba(11,11,16,.97);
+      backdrop-filter: blur(20px);
+      z-index: 190;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu a { font-size: 1.4rem; font-weight: 700; color: var(--text); }
+
+    /* ── SHARED LAYOUT ── */
+    section { padding: 88px 24px; }
+    .inner { max-width: var(--max-w); margin: 0 auto; }
+    .section-tag {
+      display: inline-block;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      margin-bottom: 12px;
+    }
+    h2 {
+      font-size: clamp(1.7rem, 3.5vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: -.02em;
+      line-height: 1.2;
+      margin-bottom: 14px;
+    }
+    .section-lead {
+      color: var(--muted);
+      font-size: 1.05rem;
+      max-width: 520px;
+      margin-bottom: 52px;
+      line-height: 1.7;
+    }
+
+    /* ── HERO ── */
+    #hero {
+      padding: 108px 24px 96px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    #hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 70% 55% at 50% -5%, rgba(124,106,247,.22) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 30% at 80% 80%, rgba(224,84,116,.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(124,106,247,.12);
+      border: 1px solid rgba(124,106,247,.3);
+      color: var(--accent2);
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 5px 14px 5px 10px;
+      border-radius: 99px;
+      margin-bottom: 28px;
+    }
+    .hero-badge::before {
+      content: '';
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+    h1 {
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -.03em;
+      margin-bottom: 22px;
+    }
+    h1 .accent { color: var(--accent2); }
+    .hero-sub {
+      margin: 0 auto 44px;
+      max-width: 540px;
+      color: var(--muted);
+      font-size: 1.1rem;
+      line-height: 1.7;
+    }
+    .btn-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 13px 28px;
+      border-radius: var(--radius);
+      font-weight: 700;
+      font-size: .95rem;
+      cursor: pointer;
+      transition: opacity .2s, transform .18s, box-shadow .2s;
+      border: none;
+    }
+    .btn:hover { opacity: .9; transform: translateY(-2px); text-decoration: none; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent) 0%, #9b7dff 100%);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(124,106,247,.4);
+    }
+    .btn-primary:hover { box-shadow: 0 6px 28px rgba(124,106,247,.55); }
+    .btn-ghost {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    /* stats bar */
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px 32px;
+      margin: 56px auto 0;
+      max-width: 640px;
+    }
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .88rem;
+      color: var(--muted);
+    }
+    .stat-val {
+      font-weight: 800;
+      font-size: 1rem;
+      color: var(--text);
+    }
+    .stat-sep { color: var(--border); font-size: 1.2rem; }
+
+    /* terminal */
+    .terminal-wrap { margin: 52px auto 0; max-width: 500px; }
+    .terminal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      text-align: left;
+    }
+    .terminal-bar {
+      background: var(--surface2);
+      padding: 11px 16px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      border-bottom: 1px solid var(--border);
+    }
+    .wdot { width:12px;height:12px;border-radius:50%; }
+    .wdot-r { background:#ff5f57; }
+    .wdot-y { background:#febc2e; }
+    .wdot-g { background:#28c840; }
+    .terminal-title {
+      flex: 1;
+      text-align: center;
+      font-size: .78rem;
+      color: var(--muted2);
+      font-family: monospace;
+    }
+    .terminal pre {
+      padding: 22px;
+      font-family: 'Fira Code', 'Cascadia Code', monospace;
+      font-size: .875rem;
+      line-height: 1.8;
+      color: #cdd6f4;
+    }
+    .t-prompt { color: #7c6af7; }
+    .t-cmd    { color: #a6e3a1; }
+    .t-info   { color: #585b70; }
+    .t-ok     { color: #4ade80; }
+
+    /* ── FEATURES ── */
+    #features {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .feat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+      gap: 16px;
+    }
+    .feat-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 26px;
+      transition: border-color .25s, transform .2s, box-shadow .25s;
+      position: relative;
+      overflow: hidden;
+    }
+    .feat-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(124,106,247,.06) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity .25s;
+    }
+    .feat-card:hover { border-color: var(--accent); transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+    .feat-card:hover::after { opacity: 1; }
+    .feat-icon { font-size: 1.7rem; margin-bottom: 14px; display: block; }
+    .feat-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+    .feat-card p { color: var(--muted); font-size: .88rem; line-height: 1.6; }
+
+    /* ── HOW IT WORKS ── */
+    #how { background: var(--bg); }
+    .how-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: start;
+    }
+    .how-steps { display: flex; flex-direction: column; gap: 0; position: relative; }
+    .how-steps::before {
+      content: '';
+      position: absolute;
+      left: 22px; top: 12px; bottom: 12px;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--accent) 0%, rgba(124,106,247,.1) 100%);
+      border-radius: 2px;
+    }
+    .step { display: flex; gap: 18px; padding: 18px 0; }
+    .step-num {
+      flex-shrink: 0;
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #9b7dff);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900;
+      font-size: 1rem;
+      color: #fff;
+      z-index: 1;
+      box-shadow: 0 4px 16px rgba(124,106,247,.45);
+    }
+    .step-body { padding-top: 10px; }
+    .step-body h3 { font-weight: 700; margin-bottom: 5px; font-size: .97rem; }
+    .step-body p { color: var(--muted); font-size: .88rem; line-height: 1.65; }
+
+    /* ring buffer diagram */
+    .ring-diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 76px;
+    }
+    .ring-label {
+      text-align: center;
+      font-size: .75rem;
+      color: var(--muted);
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      font-weight: 600;
+    }
+    .ring-track {
+      display: flex;
+      height: 44px;
+      gap: 3px;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .seg {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .72rem; font-weight: 700;
+      font-family: monospace;
+      border-radius: 4px;
+    }
+    .seg-old   { background: rgba(124,106,247,.1);  color: var(--muted2); }
+    .seg-kept  { background: rgba(124,106,247,.4);  color: #ddd; }
+    .seg-write { background: var(--red); color: #fff; animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+    .ring-info {
+      margin-top: 14px;
+      font-size: .8rem;
+      color: var(--muted);
+      text-align: center;
+    }
+    .ring-info strong { color: var(--accent2); }
+    .ring-legend {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin-top: 16px;
+      flex-wrap: wrap;
+      font-size: .8rem;
+      color: var(--muted);
+    }
+    .ldot {
+      width: 10px; height: 10px;
+      border-radius: 3px;
+      display: inline-block;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+
+    /* signal visualization */
+    .sig-row {
+      margin-top: 22px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px 18px;
+    }
+    .sig-label { font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+    .sig-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .8rem;
+      color: var(--muted);
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border2);
+    }
+    .sig-line:last-child { border-bottom: none; }
+    .sig-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .sig-dot-g { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .sig-dot-r { background: var(--red); }
+    .sig-dot-a { background: var(--accent2); }
+
+    /* ── INSTALL ── */
+    #install {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .install-tabs { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+    .tab-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 7px 18px;
+      border-radius: var(--radius-sm);
+      font-size: .85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .tab-btn:hover:not(.active) { border-color: var(--accent2); color: var(--text); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .code-wrap { position: relative; }
+    .code-block {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      font-family: 'Fira Code', 'Cascadia Code', monospace;
+      font-size: .875rem;
+      line-height: 1.85;
+      color: #cdd6f4;
+      overflow-x: auto;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 10px; right: 10px;
+      background: var(--surface3);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .75rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all .2s;
+      font-family: system-ui;
+    }
+    .copy-btn:hover { color: var(--text); border-color: var(--accent2); }
+    .copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+    .cb-c { color: #585b70; }
+    .cb-p { color: #7c6af7; }
+    .cb-s { color: #a6e3a1; }
+
+    .after-install {
+      margin-top: 32px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 26px;
+    }
+    .after-install h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--accent2);
+    }
+    .hotkey-list { display: flex; flex-direction: column; gap: 10px; }
+    .hotkey-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: .9rem;
+    }
+    kbd {
+      background: var(--surface3);
+      border: 1px solid var(--border);
+      border-bottom: 2px solid var(--muted2);
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-family: monospace;
+      font-size: .9rem;
+      color: var(--text);
+      min-width: 44px;
+      text-align: center;
+    }
+    .hotkey-desc { color: var(--muted); }
+
+    /* ── REQUIREMENTS ── */
+    #requirements { background: var(--bg); }
+    .req-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 16px;
+    }
+    .req-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 22px 18px;
+    }
+    .req-card h3 {
+      font-size: .85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--accent2);
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .req-card ul { list-style: none; }
+    .req-card li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border2);
+      font-size: .85rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .req-card li:last-child { border-bottom: none; }
+    .req-card li::before {
+      content: '·';
+      color: var(--accent);
+      font-weight: 900;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .req-card li strong { color: var(--text); }
+    .req-card li .tag {
+      font-size: .72rem;
+      background: rgba(124,106,247,.15);
+      color: var(--accent2);
+      padding: 1px 7px;
+      border-radius: 99px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 44px 24px;
+      text-align: center;
+    }
+    .footer-inner { max-width: var(--max-w); margin: 0 auto; }
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      font-weight: 800;
+      font-size: 1.1rem;
+      margin-bottom: 12px;
+    }
+    .footer-logo .rec-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 8px var(--red);
+    }
+    .footer-links { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin: 14px 0; }
+    .footer-links a { color: var(--muted); font-size: .88rem; transition: color .2s; }
+    .footer-links a:hover { color: var(--text); text-decoration: none; }
+    .footer-copy { color: var(--muted2); font-size: .82rem; margin-top: 6px; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 800px) {
+      .how-layout { grid-template-columns: 1fr; gap: 40px; }
+      .ring-diagram { position: static; }
+      .nav-links { display: none; }
+      .hamburger { display: flex; }
+    }
+    @media (max-width: 560px) {
+      h1 { font-size: 2.2rem; }
+      section { padding: 64px 16px; }
+      #hero { padding: 80px 16px 64px; }
+      .stats-bar { gap: 8px 20px; }
+      .stat-sep { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ────────────────────────────────────────────────────────────────── -->
+<nav>
+  <div class="nav-inner">
+    <div class="nav-logo">
+      <span class="rec-dot"></span>
+      P2-Record
+    </div>
+
+    <ul class="nav-links">
+      <li><a href="#features" data-i18n="nav.features">Features</a></li>
+      <li><a href="#how" data-i18n="nav.how">Funktionsweise</a></li>
+      <li><a href="#install" data-i18n="nav.install">Installation</a></li>
+      <li><a href="#requirements" data-i18n="nav.req">Requirements</a></li>
+    </ul>
+
+    <div class="nav-right">
+      <div class="lang-toggle">
+        <button class="lang-btn active" id="btn-de" onclick="setLang('de')">DE</button>
+        <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
+      </div>
+      <button class="hamburger" id="hamburger" aria-label="Menu" onclick="toggleMenu()">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- mobile nav -->
+<div class="mobile-menu" id="mobile-menu">
+  <a href="#features" data-i18n="nav.features" onclick="toggleMenu()">Features</a>
+  <a href="#how" data-i18n="nav.how" onclick="toggleMenu()">Funktionsweise</a>
+  <a href="#install" data-i18n="nav.install" onclick="toggleMenu()">Installation</a>
+  <a href="#requirements" data-i18n="nav.req" onclick="toggleMenu()">Requirements</a>
+</div>
+
+<!-- ── HERO ───────────────────────────────────────────────────────────────── -->
+<section id="hero">
+  <div class="inner">
+    <div class="reveal">
+      <div class="hero-badge" data-i18n="hero.badge">Open Source · Linux Native · Kein Abo</div>
+      <h1 data-i18n-html="hero.h1">Game Clips ohne<br><span class="accent">Browser. Ohne Cloud.</span></h1>
+      <p class="hero-sub" data-i18n="hero.sub">
+        P2-Record nimmt dein Gameplay ununterbrochen im Hintergrund auf —
+        drück den Hotkey und die letzten Sekunden sind gespeichert.
+        Kein Geräusch, kein Overlay, kein Abo.
+      </p>
+      <div class="btn-row">
+        <a href="#install" class="btn btn-primary" data-i18n="hero.btn1">⬇ Installieren</a>
+        <a href="#how" class="btn btn-ghost" data-i18n="hero.btn2">Wie funktioniert's?</a>
+      </div>
+    </div>
+
+    <div class="stats-bar reveal">
+      <div class="stat">
+        <span class="stat-val">0%</span>
+        <span data-i18n="hero.stat1">CPU-Overhead (VAAPI)</span>
+      </div>
+      <span class="stat-sep">|</span>
+      <div class="stat">
+        <span class="stat-val">5 s</span>
+        <span data-i18n="hero.stat2">Segmentgröße</span>
+      </div>
+      <span class="stat-sep">|</span>
+      <div class="stat">
+        <span class="stat-val">MKV</span>
+        <span data-i18n="hero.stat3">Ausgabeformat</span>
+      </div>
+      <span class="stat-sep">|</span>
+      <div class="stat">
+        <span class="stat-val" data-i18n="hero.stat4val">Wayland + X11</span>
+      </div>
+    </div>
+
+    <div class="terminal-wrap reveal">
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="wdot wdot-r"></span>
+          <span class="wdot wdot-y"></span>
+          <span class="wdot wdot-g"></span>
+          <span class="terminal-title">bash — p2record</span>
+        </div>
+        <pre><span class="t-prompt">$</span> <span class="t-cmd">yay -S p2record</span>
+<span class="t-info">:: Resolving dependencies...</span>
+<span class="t-info">:: Installing p2record 0.2.0-1...</span>
+<span class="t-ok">✓ Done</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">p2record</span>
+<span class="t-info" data-i18n="hero.term1"># Läuft im Tray — F8 zum Aufnehmen</span>
+<span class="t-info" data-i18n="hero.term2"># Drück F9 → Clip gespeichert ✓</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FEATURES ───────────────────────────────────────────────────────────── -->
+<section id="features">
+  <div class="inner">
+    <div class="reveal">
+      <span class="section-tag" data-i18n="feat.tag">Features</span>
+      <h2 data-i18n="feat.h2">Alles drin. Nichts überflüssig.</h2>
+      <p class="section-lead" data-i18n="feat.lead">Alles was du für Game Clips brauchst — direkt in GTK4, kein Electron, kein Browser.</p>
+    </div>
+
+    <div class="feat-grid">
+      <div class="feat-card reveal">
+        <span class="feat-icon">🔴</span>
+        <h3 data-i18n="feat.1.h">Ringpuffer-Aufnahme</h3>
+        <p data-i18n="feat.1.p">FFmpeg läuft ständig im Hintergrund und behält die letzten N Sekunden. Hotkey drücken — fertig. Nichts geht verloren.</p>
+      </div>
+      <div class="feat-card reveal">
+        <span class="feat-icon">⚡</span>
+        <h3 data-i18n="feat.2.h">VAAPI Hardware-Encoding</h3>
+        <p data-i18n="feat.2.p">AMD/Intel GPU via VAAPI (<code>h264_vaapi</code>) — nahezu null CPU-Last während der Aufnahme. Automatischer Fallback auf Software.</p>
+      </div>
+      <div class="feat-card reveal">
+        <span class="feat-icon">🖥</span>
+        <h3 data-i18n="feat.3.h">Wayland &amp; X11</h3>
+        <p data-i18n="feat.3.p">Wayland: xdg-desktop-portal → PipeWire → GStreamer. X11: direktes x11grab. Wird automatisch erkannt — kein Setup nötig.</p>
+      </div>
+      <div class="feat-card reveal">
+        <span class="feat-icon">🔊</span>
+        <h3 data-i18n="feat.4.h">Flexibles Audio</h3>
+        <p data-i18n="feat.4.p">Kein Audio · Desktop · Mikrofon · Beides gleichzeitig via FFmpeg amix. Funktioniert mit PipeWire-Pulse und PulseAudio.</p>
+      </div>
+      <div class="feat-card reveal">
+        <span class="feat-icon">⌨️</span>
+        <h3 data-i18n="feat.5.h">Globale Hotkeys</h3>
+        <p data-i18n="feat.5.p">evdev-Backend: funktioniert in jedem Game, auch bei gegrabbten Inputs. X11-Fallback. Frei konfigurierbar in den Einstellungen.</p>
+      </div>
+      <div class="feat-card reveal">
+        <span class="feat-icon">🗂</span>
+        <h3 data-i18n="feat.6.h">Clip-Bibliothek</h3>
+        <p data-i18n="feat.6.p">Alle Clips mit Vorschaubild, Länge und Datum. Direkt öffnen oder löschen — ohne Dateimanager.</p>
+      </div>
+      <div class="feat-card reveal">
+        <span class="feat-icon">🌍</span>
+        <h3 data-i18n="feat.7.h">Deutsch &amp; Englisch</h3>
+        <p data-i18n="feat.7.p">Vollständige UI in DE und EN, umschaltbar in den Einstellungen. Kein hartcodierter Text — komplett i18n.</p>
+      </div>
+      <div class="feat-card reveal">
+        <span class="feat-icon">🎨</span>
+        <h3 data-i18n="feat.8.h">Natives GTK4-Design</h3>
+        <p data-i18n="feat.8.p">Libadwaita-Widgets, Dark Mode, responsive Layout. Passt sich dem System-Theme an — sieht auf GNOME nativ aus.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ────────────────────────────────────────────────────────── -->
+<section id="how">
+  <div class="inner">
+    <div class="reveal">
+      <span class="section-tag" data-i18n="how.tag">Funktionsweise</span>
+      <h2 data-i18n="how.h2">Wie funktioniert der Ringpuffer?</h2>
+      <p class="section-lead" data-i18n="how.lead">
+        P2-Record nimmt ununterbrochen auf — speichert aber nichts dauerhaft, bis du den Hotkey drückst.
+      </p>
+    </div>
+
+    <div class="how-layout">
+      <div class="how-steps reveal">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3 data-i18n="how.s1.h">FFmpeg Segment-Muxer</h3>
+            <p data-i18n="how.s1.p">FFmpeg schreibt kontinuierlich in 5-Sekunden-Segmente (<code>-f segment -segment_time 5</code>). Alte Segmente werden automatisch überschrieben.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3 data-i18n="how.s2.h">SIGUSR1 — präziser Schnitt</h3>
+            <p data-i18n="how.s2.p">Beim Speichern (F9) sendet P2-Record <code>SIGUSR1</code> an FFmpeg. Der Muxer schneidet am nächsten Keyframe — Footage bis kurz vor dem Tastendruck ist enthalten.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3 data-i18n="how.s3.h">Segmente zusammenfügen</h3>
+            <p data-i18n="how.s3.p">Die letzten N Segmente werden entsprechend der eingestellten Clip-Länge via FFmpeg concat zu einer MKV-Datei zusammengefügt.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h3 data-i18n="how.s4.h">Clip gespeichert</h3>
+            <p data-i18n="how.s4.p">Fertige Datei landet im Clips-Ordner. Benachrichtigung erscheint, Clip ist sofort in der Bibliothek sichtbar. Ringpuffer läuft weiter.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="reveal">
+        <div class="ring-diagram">
+          <div class="ring-label" data-i18n="how.diag.label">Ringpuffer — 12 × 5 s = 60 s Puffer</div>
+          <div class="ring-track">
+            <div class="seg seg-old">-60s</div>
+            <div class="seg seg-old">-55s</div>
+            <div class="seg seg-old">-50s</div>
+            <div class="seg seg-old">-45s</div>
+            <div class="seg seg-kept">-40s</div>
+            <div class="seg seg-kept">-35s</div>
+            <div class="seg seg-kept">-30s</div>
+            <div class="seg seg-kept">-25s</div>
+            <div class="seg seg-kept">-20s</div>
+            <div class="seg seg-kept">-15s</div>
+            <div class="seg seg-kept">-10s</div>
+            <div class="seg seg-write">● live</div>
+          </div>
+          <div class="ring-legend">
+            <span><span class="ldot" style="background:rgba(124,106,247,.1)"></span><span data-i18n="how.diag.l1">überschrieben</span></span>
+            <span><span class="ldot" style="background:rgba(124,106,247,.4)"></span><span data-i18n="how.diag.l2">gespeichert (30 s)</span></span>
+            <span><span class="ldot" style="background:#e05474"></span><span data-i18n="how.diag.l3">live</span></span>
+          </div>
+          <div class="ring-info">
+            <span data-i18n="how.diag.info">F9 drücken → <strong>SIGUSR1</strong> → Schnitt → concat → MKV</span>
+          </div>
+
+          <div class="sig-row">
+            <div class="sig-label" data-i18n="how.diag.sig">Signal-Ablauf</div>
+            <div class="sig-line">
+              <span class="sig-dot sig-dot-g"></span>
+              <span data-i18n="how.sig.1">FFmpeg läuft — schreibt Segmente</span>
+            </div>
+            <div class="sig-line">
+              <span class="sig-dot sig-dot-r"></span>
+              <span data-i18n="how.sig.2">F9 gedrückt → SIGUSR1 gesendet</span>
+            </div>
+            <div class="sig-line">
+              <span class="sig-dot sig-dot-a"></span>
+              <span data-i18n="how.sig.3">Segmente werden gesammelt & concat</span>
+            </div>
+            <div class="sig-line">
+              <span class="sig-dot sig-dot-g"></span>
+              <span data-i18n="how.sig.4">Clip.mkv gespeichert ✓</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── INSTALL ────────────────────────────────────────────────────────────── -->
+<section id="install">
+  <div class="inner">
+    <div class="reveal">
+      <span class="section-tag" data-i18n="inst.tag">Installation</span>
+      <h2 data-i18n="inst.h2">In einem Befehl installiert</h2>
+      <p class="section-lead" data-i18n="inst.lead">P2-Record ist auf Arch Linux und allen Arch-basierten Distros via AUR verfügbar.</p>
+    </div>
+
+    <div class="reveal">
+      <div class="install-tabs">
+        <button class="tab-btn active" onclick="showTab('yay',event)">AUR (yay)</button>
+        <button class="tab-btn" onclick="showTab('paru',event)">AUR (paru)</button>
+        <button class="tab-btn" onclick="showTab('manual',event)" data-i18n="inst.tab.manual">Manuell</button>
+      </div>
+
+      <div id="tab-yay" class="tab-panel active">
+        <div class="code-wrap">
+          <div class="code-block"><span class="cb-c" data-i18n="inst.yay.c"># Einzeiler — yay löst alle Abhängigkeiten auf</span>
+<span class="cb-p">$</span> yay -S p2record</div>
+          <button class="copy-btn" onclick="copyCode(this,'yay -S p2record')">Copy</button>
+        </div>
+      </div>
+      <div id="tab-paru" class="tab-panel">
+        <div class="code-wrap">
+          <div class="code-block"><span class="cb-p">$</span> paru -S p2record</div>
+          <button class="copy-btn" onclick="copyCode(this,'paru -S p2record')">Copy</button>
+        </div>
+      </div>
+      <div id="tab-manual" class="tab-panel">
+        <div class="code-wrap">
+          <div class="code-block"><span class="cb-c" data-i18n="inst.man.c1"># 1. AUR-Repo klonen</span>
+<span class="cb-p">$</span> git clone https://aur.archlinux.org/p2record.git
+<span class="cb-p">$</span> cd p2record
+
+<span class="cb-c" data-i18n="inst.man.c2"># 2. Paket bauen und installieren</span>
+<span class="cb-p">$</span> makepkg -si
+
+<span class="cb-c" data-i18n="inst.man.c3"># 3. Starten</span>
+<span class="cb-p">$</span> p2record</div>
+          <button class="copy-btn" onclick="copyCode(this,'git clone https://aur.archlinux.org/p2record.git && cd p2record && makepkg -si')">Copy</button>
+        </div>
+      </div>
+
+      <div class="after-install">
+        <h3 data-i18n="inst.after.h">Nach der Installation</h3>
+        <div class="hotkey-list">
+          <div class="hotkey-row">
+            <kbd>F8</kbd>
+            <span class="hotkey-desc" data-i18n="inst.hk1">Aufnahme starten / stoppen</span>
+          </div>
+          <div class="hotkey-row">
+            <kbd>F9</kbd>
+            <span class="hotkey-desc" data-i18n="inst.hk2">Clip speichern (letzte X Sekunden)</span>
+          </div>
+        </div>
+        <p style="margin-top:14px;font-size:.85rem;color:var(--muted)" data-i18n="inst.after.note">
+          Hotkeys sind in den Einstellungen frei konfigurierbar.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── REQUIREMENTS ───────────────────────────────────────────────────────── -->
+<section id="requirements">
+  <div class="inner">
+    <div class="reveal">
+      <span class="section-tag" data-i18n="req.tag">Requirements</span>
+      <h2 data-i18n="req.h2">Alles aus den offiziellen Repos</h2>
+      <p class="section-lead" data-i18n="req.lead">Keine externen Quellen, kein AUR-Wildwuchs — alle Abhängigkeiten aus den offiziellen Arch-Repos.</p>
+    </div>
+
+    <div class="req-grid reveal">
+      <div class="req-card">
+        <h3 data-i18n="req.c1.h">Pflicht</h3>
+        <ul>
+          <li><strong>python</strong></li>
+          <li><strong>python-gobject</strong></li>
+          <li><strong>gtk4</strong></li>
+          <li><strong>libadwaita</strong></li>
+          <li><strong>ffmpeg</strong></li>
+          <li><strong>python-evdev</strong> <span class="tag" data-i18n="req.tag.hotkeys">Hotkeys</span></li>
+          <li><strong>python-xlib</strong> <span class="tag">X11</span></li>
+          <li><strong>python-dbus</strong> <span class="tag">Wayland</span></li>
+        </ul>
+      </div>
+      <div class="req-card">
+        <h3 data-i18n="req.c2.h">Wayland-Capture</h3>
+        <ul>
+          <li><strong>xdg-desktop-portal</strong></li>
+          <li><strong>gstreamer</strong></li>
+          <li><strong>gst-plugins-base</strong></li>
+          <li><strong>gst-plugin-pipewire</strong></li>
+          <li>xdg-desktop-portal-gnome <span class="tag">GNOME</span></li>
+          <li>xdg-desktop-portal-kde <span class="tag">KDE</span></li>
+          <li>xdg-desktop-portal-wlr <span class="tag">Hyprland</span></li>
+        </ul>
+      </div>
+      <div class="req-card">
+        <h3>Audio</h3>
+        <ul>
+          <li><strong>pipewire-pulse</strong> <span class="tag" data-i18n="req.tag.recommended">empfohlen</span></li>
+          <li><strong>pulseaudio</strong> <span class="tag" data-i18n="req.tag.alt">Alternative</span></li>
+          <li data-i18n="req.audio.note">Mic &amp; Desktop-Audio via PulseAudio-API</li>
+          <li data-i18n="req.audio.none">Kein Framework? → Audio deaktivierbar</li>
+        </ul>
+      </div>
+      <div class="req-card">
+        <h3 data-i18n="req.c4.h">Optional</h3>
+        <ul>
+          <li><strong>libayatana-appindicator</strong> <span class="tag">Tray</span></li>
+          <li data-i18n="req.amd">AMD Vega / RX / RDNA — VAAPI</li>
+          <li data-i18n="req.intel">Intel Iris / HD — VAAPI</li>
+          <li data-i18n="req.sw">Software-Fallback immer verfügbar</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ─────────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">
+      <span class="rec-dot"></span>
+      P2-Record
+    </div>
+    <div class="footer-links">
+      <a href="https://aur.archlinux.org/packages/p2record">AUR</a>
+      <a href="#features" data-i18n="nav.features">Features</a>
+      <a href="#how" data-i18n="nav.how">Funktionsweise</a>
+      <a href="#install" data-i18n="nav.install">Installation</a>
+    </div>
+    <p class="footer-copy" data-i18n="footer.copy">Open Source · MIT License · Gebaut mit GTK4 + Libadwaita + FFmpeg</p>
+  </div>
+</footer>
+
+<!-- ── SCRIPTS ─────────────────────────────────────────────────────────────── -->
+<script>
+/* ── i18n ── */
+const STRINGS = {
+  'nav.features': { de: 'Features',         en: 'Features' },
+  'nav.how':      { de: 'Funktionsweise',   en: 'How it works' },
+  'nav.install':  { de: 'Installation',     en: 'Installation' },
+  'nav.req':      { de: 'Requirements',     en: 'Requirements' },
+
+  'hero.badge': { de: 'Open Source · Linux Native · Kein Abo',     en: 'Open Source · Linux Native · No Subscription' },
+  'hero.h1':    { de: 'Game Clips ohne<br><span class="accent">Browser. Ohne Cloud.</span>', en: 'Game clips without<br><span class="accent">a browser. Without cloud.</span>' },
+  'hero.sub':   { de: 'P2-Record nimmt dein Gameplay ununterbrochen im Hintergrund auf — drück den Hotkey und die letzten Sekunden sind gespeichert. Kein Geräusch, kein Overlay, kein Abo.',
+                  en: 'P2-Record records your gameplay continuously in the background — press the hotkey and the last seconds are saved. No noise, no overlay, no subscription.' },
+  'hero.btn1':  { de: '⬇ Installieren', en: '⬇ Install' },
+  'hero.btn2':  { de: "Wie funktioniert's?", en: 'How does it work?' },
+  'hero.stat1': { de: 'CPU-Overhead (VAAPI)', en: 'CPU overhead (VAAPI)' },
+  'hero.stat2': { de: 'Segmentgröße',         en: 'Segment size' },
+  'hero.stat3': { de: 'Ausgabeformat',         en: 'Output format' },
+  'hero.stat4val': { de: 'Wayland + X11',      en: 'Wayland + X11' },
+  'hero.term1': { de: '# Läuft im Tray — F8 zum Aufnehmen', en: '# Running in tray — F8 to record' },
+  'hero.term2': { de: '# Drück F9 → Clip gespeichert ✓',   en: '# Press F9 → clip saved ✓' },
+
+  'feat.tag':  { de: 'Features',                              en: 'Features' },
+  'feat.h2':   { de: 'Alles drin. Nichts überflüssig.',       en: 'Everything included. Nothing extra.' },
+  'feat.lead': { de: 'Alles was du für Game Clips brauchst — direkt in GTK4, kein Electron, kein Browser.',
+                 en: 'Everything you need for game clips — native GTK4, no Electron, no browser.' },
+  'feat.1.h': { de: 'Ringpuffer-Aufnahme',        en: 'Ring Buffer Recording' },
+  'feat.1.p': { de: 'FFmpeg läuft ständig im Hintergrund und behält die letzten N Sekunden. Hotkey drücken — fertig. Nichts geht verloren.',
+                en: 'FFmpeg runs continuously in the background, keeping the last N seconds. Press the hotkey — done. Nothing is lost.' },
+  'feat.2.h': { de: 'VAAPI Hardware-Encoding',    en: 'VAAPI Hardware Encoding' },
+  'feat.2.p': { de: 'AMD/Intel GPU via VAAPI (h264_vaapi) — nahezu null CPU-Last während der Aufnahme. Automatischer Fallback auf Software.',
+                en: 'AMD/Intel GPU via VAAPI (h264_vaapi) — near-zero CPU load while recording. Automatic software fallback.' },
+  'feat.3.h': { de: 'Wayland & X11',              en: 'Wayland & X11' },
+  'feat.3.p': { de: 'Wayland: xdg-desktop-portal → PipeWire → GStreamer. X11: direktes x11grab. Wird automatisch erkannt — kein Setup nötig.',
+                en: 'Wayland: xdg-desktop-portal → PipeWire → GStreamer. X11: direct x11grab. Auto-detected — no setup needed.' },
+  'feat.4.h': { de: 'Flexibles Audio',             en: 'Flexible Audio' },
+  'feat.4.p': { de: 'Kein Audio · Desktop · Mikrofon · Beides gleichzeitig via FFmpeg amix. Funktioniert mit PipeWire-Pulse und PulseAudio.',
+                en: 'No audio · Desktop · Mic · Both at once via FFmpeg amix. Works with PipeWire-Pulse and PulseAudio.' },
+  'feat.5.h': { de: 'Globale Hotkeys',             en: 'Global Hotkeys' },
+  'feat.5.p': { de: 'evdev-Backend: funktioniert in jedem Game, auch bei gegrabbten Inputs. X11-Fallback. Frei konfigurierbar in den Einstellungen.',
+                en: 'evdev backend: works in every game, even with grabbed inputs. X11 fallback. Freely configurable in settings.' },
+  'feat.6.h': { de: 'Clip-Bibliothek',             en: 'Clip Library' },
+  'feat.6.p': { de: 'Alle Clips mit Vorschaubild, Länge und Datum. Direkt öffnen oder löschen — ohne Dateimanager.',
+                en: 'All clips with thumbnail, duration and date. Open or delete directly — no file manager needed.' },
+  'feat.7.h': { de: 'Deutsch & Englisch',          en: 'German & English' },
+  'feat.7.p': { de: 'Vollständige UI in DE und EN, umschaltbar in den Einstellungen. Kein hartcodierter Text — komplett i18n.',
+                en: 'Full UI in DE and EN, switchable in settings. No hardcoded text — fully i18n.' },
+  'feat.8.h': { de: 'Natives GTK4-Design',         en: 'Native GTK4 Design' },
+  'feat.8.p': { de: 'Libadwaita-Widgets, Dark Mode, responsive Layout. Passt sich dem System-Theme an — sieht auf GNOME nativ aus.',
+                en: 'Libadwaita widgets, dark mode, responsive layout. Adapts to system theme — looks native on GNOME.' },
+
+  'how.tag':  { de: 'Funktionsweise',  en: 'How it works' },
+  'how.h2':   { de: 'Wie funktioniert der Ringpuffer?', en: 'How does the ring buffer work?' },
+  'how.lead': { de: 'P2-Record nimmt ununterbrochen auf — speichert aber nichts dauerhaft, bis du den Hotkey drückst.',
+                en: 'P2-Record records continuously — but saves nothing permanently until you press the hotkey.' },
+  'how.s1.h': { de: 'FFmpeg Segment-Muxer',     en: 'FFmpeg Segment Muxer' },
+  'how.s1.p': { de: 'FFmpeg schreibt kontinuierlich in 5-Sekunden-Segmente (-f segment -segment_time 5). Alte Segmente werden automatisch überschrieben.',
+                en: 'FFmpeg continuously writes 5-second segments (-f segment -segment_time 5). Old segments are automatically overwritten.' },
+  'how.s2.h': { de: 'SIGUSR1 — präziser Schnitt', en: 'SIGUSR1 — precise cut' },
+  'how.s2.p': { de: 'Beim Speichern (F9) sendet P2-Record SIGUSR1 an FFmpeg. Der Muxer schneidet am nächsten Keyframe — Footage bis kurz vor dem Tastendruck ist enthalten.',
+                en: 'When saving (F9), P2-Record sends SIGUSR1 to FFmpeg. The muxer cuts at the next keyframe — footage up to just before the keypress is included.' },
+  'how.s3.h': { de: 'Segmente zusammenfügen',   en: 'Joining segments' },
+  'how.s3.p': { de: 'Die letzten N Segmente werden entsprechend der eingestellten Clip-Länge via FFmpeg concat zu einer MKV-Datei zusammengefügt.',
+                en: 'The last N segments are joined into an MKV file via FFmpeg concat according to the configured clip length.' },
+  'how.s4.h': { de: 'Clip gespeichert',         en: 'Clip saved' },
+  'how.s4.p': { de: 'Fertige Datei landet im Clips-Ordner. Benachrichtigung erscheint, Clip ist sofort in der Bibliothek sichtbar. Ringpuffer läuft weiter.',
+                en: 'Finished file lands in the clips folder. Notification appears, clip is immediately visible in the library. Ring buffer keeps running.' },
+  'how.diag.label': { de: 'Ringpuffer — 12 × 5 s = 60 s Puffer', en: 'Ring buffer — 12 × 5 s = 60 s buffer' },
+  'how.diag.l1':    { de: 'überschrieben',       en: 'overwritten' },
+  'how.diag.l2':    { de: 'gespeichert (30 s)',  en: 'saved (30 s)' },
+  'how.diag.l3':    { de: 'live',                en: 'live' },
+  'how.diag.info':  { de: 'F9 drücken → <strong>SIGUSR1</strong> → Schnitt → concat → MKV',
+                      en: 'Press F9 → <strong>SIGUSR1</strong> → cut → concat → MKV' },
+  'how.diag.sig':   { de: 'Signal-Ablauf', en: 'Signal flow' },
+  'how.sig.1': { de: 'FFmpeg läuft — schreibt Segmente',     en: 'FFmpeg running — writing segments' },
+  'how.sig.2': { de: 'F9 gedrückt → SIGUSR1 gesendet',       en: 'F9 pressed → SIGUSR1 sent' },
+  'how.sig.3': { de: 'Segmente werden gesammelt & concat',   en: 'Segments collected & concat' },
+  'how.sig.4': { de: 'Clip.mkv gespeichert ✓',               en: 'Clip.mkv saved ✓' },
+
+  'inst.tag':       { de: 'Installation',   en: 'Installation' },
+  'inst.h2':        { de: 'In einem Befehl installiert', en: 'Installed in one command' },
+  'inst.lead':      { de: 'P2-Record ist auf Arch Linux und allen Arch-basierten Distros via AUR verfügbar.',
+                      en: 'P2-Record is available on Arch Linux and all Arch-based distros via AUR.' },
+  'inst.tab.manual':{ de: 'Manuell', en: 'Manual' },
+  'inst.yay.c':     { de: '# Einzeiler — yay löst alle Abhängigkeiten auf', en: '# One-liner — yay resolves all dependencies' },
+  'inst.man.c1':    { de: '# 1. AUR-Repo klonen',              en: '# 1. Clone AUR repo' },
+  'inst.man.c2':    { de: '# 2. Paket bauen und installieren', en: '# 2. Build and install package' },
+  'inst.man.c3':    { de: '# 3. Starten',                      en: '# 3. Launch' },
+  'inst.after.h':   { de: 'Nach der Installation',             en: 'After installation' },
+  'inst.hk1':       { de: 'Aufnahme starten / stoppen',        en: 'Start / stop recording' },
+  'inst.hk2':       { de: 'Clip speichern (letzte X Sekunden)', en: 'Save clip (last X seconds)' },
+  'inst.after.note':{ de: 'Hotkeys sind in den Einstellungen frei konfigurierbar.', en: 'Hotkeys can be freely configured in settings.' },
+
+  'req.tag':  { de: 'Requirements',     en: 'Requirements' },
+  'req.h2':   { de: 'Alles aus den offiziellen Repos', en: 'All from official repos' },
+  'req.lead': { de: 'Keine externen Quellen, kein AUR-Wildwuchs — alle Abhängigkeiten aus den offiziellen Arch-Repos.',
+                en: 'No external sources, no AUR clutter — all dependencies from official Arch repos.' },
+  'req.c1.h': { de: 'Pflicht',           en: 'Required' },
+  'req.c2.h': { de: 'Wayland-Capture',   en: 'Wayland Capture' },
+  'req.c4.h': { de: 'Optional',          en: 'Optional' },
+  'req.tag.hotkeys':    { de: 'Hotkeys',    en: 'Hotkeys' },
+  'req.tag.recommended':{ de: 'empfohlen',  en: 'recommended' },
+  'req.tag.alt':        { de: 'Alternative',en: 'Alternative' },
+  'req.audio.note': { de: 'Mic & Desktop-Audio via PulseAudio-API', en: 'Mic & desktop audio via PulseAudio API' },
+  'req.audio.none': { de: 'Kein Framework? → Audio deaktivierbar',  en: 'No framework? → audio can be disabled' },
+  'req.amd':   { de: 'AMD Vega / RX / RDNA — VAAPI',  en: 'AMD Vega / RX / RDNA — VAAPI' },
+  'req.intel': { de: 'Intel Iris / HD — VAAPI',        en: 'Intel Iris / HD — VAAPI' },
+  'req.sw':    { de: 'Software-Fallback immer verfügbar', en: 'Software fallback always available' },
+
+  'footer.copy': { de: 'Open Source · MIT License · Gebaut mit GTK4 + Libadwaita + FFmpeg',
+                   en: 'Open Source · MIT License · Built with GTK4 + Libadwaita + FFmpeg' },
+};
+
+let currentLang = 'de';
+
+function t(key) {
+  const entry = STRINGS[key];
+  if (!entry) return key;
+  return entry[currentLang] || entry['de'] || key;
+}
+
+function applyLang() {
+  document.documentElement.lang = currentLang;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    el.innerHTML = t(el.dataset.i18nHtml);
+  });
+  document.getElementById('btn-de').classList.toggle('active', currentLang === 'de');
+  document.getElementById('btn-en').classList.toggle('active', currentLang === 'en');
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  localStorage.setItem('p2r-lang', lang);
+  applyLang();
+}
+
+/* ── tabs ── */
+function showTab(id, ev) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  ev.target.classList.add('active');
+}
+
+/* ── copy buttons ── */
+function copyCode(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+  });
+}
+
+/* ── mobile menu ── */
+function toggleMenu() {
+  document.getElementById('mobile-menu').classList.toggle('open');
+}
+
+/* ── scroll reveal ── */
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+/* ── init ── */
+const saved = localStorage.getItem('p2r-lang');
+if (saved && (saved === 'de' || saved === 'en')) currentLang = saved;
+applyLang();
+</script>
+</body>
+</html>

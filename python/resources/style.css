@@ -1,0 +1,411 @@
+/* ── Global ──────────────────────────────────────────────────────────────────── */
+
+window {
+  background-color: #0d0d12;
+  color: #e2e2f0;
+}
+
+* {
+  font-family: "Inter", "Cantarell", sans-serif;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────────── */
+
+.sidebar {
+  background-color: #0f0f18;
+  min-width: 200px;
+}
+
+.app-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #e2e2f0;
+}
+
+.app-subtitle {
+  font-size: 10px;
+  color: #4a4a60;
+  margin-top: 1px;
+}
+
+.nav-btn {
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #8888aa;
+  font-size: 13px;
+  transition: background 120ms, color 120ms;
+}
+
+.nav-btn:hover {
+  background-color: rgba(99, 102, 241, 0.10);
+  color: #c8c8e8;
+}
+
+.nav-btn:checked {
+  background-color: rgba(99, 102, 241, 0.20);
+  color: #a5b4fc;
+}
+
+.rec-indicator {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.rec-off {
+  color: #4a4a60;
+}
+
+.rec-on {
+  color: #ef4444;
+  /* Blink animation */
+  animation: blink 1.4s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── Page titles ─────────────────────────────────────────────────────────────── */
+
+.page-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #e2e2f0;
+}
+
+/* ── Cards ───────────────────────────────────────────────────────────────────── */
+
+.card {
+  background-color: #161620;
+  border-radius: 12px;
+  border: 1px solid #2a2a3a;
+  padding: 16px;
+}
+
+.card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8888aa;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+/* ── Status dot ──────────────────────────────────────────────────────────────── */
+
+.status-dot {
+  font-size: 28px;
+  margin-right: 4px;
+}
+
+.dot-off { color: #3a3a50; }
+.dot-on  { color: #ef4444; animation: blink 1.4s ease-in-out infinite; }
+
+.status-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e2f0;
+}
+
+.game-label {
+  font-size: 12px;
+  color: #8888aa;
+}
+
+/* ── Progress bar ────────────────────────────────────────────────────────────── */
+
+.buffer-progress trough {
+  background-color: #2a2a3a;
+  border-radius: 4px;
+  min-height: 6px;
+}
+
+.buffer-progress progress {
+  background-color: #6366f1;
+  border-radius: 4px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────────── */
+
+.btn-primary {
+  background-color: #1e2030;
+  color: #c8c8e8;
+  border: 1px solid #3a3a55;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  transition: background 120ms;
+}
+
+.btn-primary:hover {
+  background-color: #252540;
+}
+
+.btn-accent {
+  background-color: #6366f1;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 120ms;
+}
+
+.btn-accent:hover {
+  background-color: #5254cc;
+}
+
+.btn-danger {
+  background-color: #7f1d1d;
+  color: #fca5a5;
+  border: 1px solid #991b1b;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  transition: background 120ms;
+}
+
+.btn-danger:hover {
+  background-color: #991b1b;
+}
+
+.btn-secondary {
+  background-color: #1e1e2e;
+  color: #8888aa;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  transition: background 120ms, color 120ms;
+}
+
+.btn-secondary:hover {
+  background-color: #252538;
+  color: #c8c8e8;
+}
+
+.btn-danger-small {
+  background-color: transparent;
+  color: #6b6b7f;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  transition: background 120ms, color 120ms;
+}
+
+.btn-danger-small:hover {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* ── Badges ──────────────────────────────────────────────────────────────────── */
+
+.saved-badge {
+  background-color: rgba(34, 197, 94, 0.12);
+  color: #86efac;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+.error-label {
+  color: #fca5a5;
+  font-size: 12px;
+  background-color: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.hint-label {
+  font-size: 11px;
+  color: #4a4a60;
+}
+
+/* ── Settings rows ───────────────────────────────────────────────────────────── */
+
+.settings-row {
+  padding: 10px 0;
+  border-bottom: 1px solid #1e1e2e;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6366f1;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.row-label {
+  font-size: 13px;
+  color: #e2e2f0;
+}
+
+.row-hint {
+  font-size: 11px;
+  color: #4a4a60;
+}
+
+.row-value {
+  font-size: 13px;
+  color: #e2e2f0;
+  font-weight: 500;
+  min-width: 52px;
+}
+
+/* ── Hotkey entry ────────────────────────────────────────────────────────────── */
+
+.hotkey-entry {
+  background-color: #1e1e2e;
+  color: #e2e2f0;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 12px;
+  caret-color: transparent;
+}
+
+.hotkey-entry:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+}
+
+/* ── Dropdown ────────────────────────────────────────────────────────────────── */
+
+.settings-dropdown {
+  background-color: #1e1e2e;
+  color: #e2e2f0;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+  min-width: 140px;
+}
+
+/* ── Status banners ──────────────────────────────────────────────────────────── */
+
+.status-ok {
+  background-color: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #86efac;
+}
+
+.status-warn {
+  background-color: rgba(234, 179, 8, 0.08);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #fde047;
+}
+
+/* ── Clip library ────────────────────────────────────────────────────────────── */
+
+.clip-list {
+  background: transparent;
+}
+
+.clip-list row {
+  background-color: #161620;
+  border-radius: 10px;
+  margin: 4px 16px;
+  border: 1px solid #2a2a3a;
+  transition: background 100ms;
+}
+
+.clip-list row:hover {
+  background-color: #1e1e30;
+}
+
+.clip-row {
+  padding: 10px 16px;
+}
+
+.clip-thumb {
+  border-radius: 6px;
+  background-color: #1e1e2e;
+}
+
+.clip-game {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e2f0;
+}
+
+.clip-meta {
+  font-size: 11px;
+  color: #5a5a78;
+}
+
+/* ── Info box ────────────────────────────────────────────────────────────────── */
+
+.info-box {
+  background-color: #111120;
+  border: 1px solid #2a2a3a;
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.info-text {
+  font-size: 11px;
+  color: #5a5a78;
+  line-height: 1.6;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────────── */
+
+.empty-label {
+  font-size: 13px;
+  color: #3a3a50;
+}
+
+/* ── Separator ───────────────────────────────────────────────────────────────── */
+
+separator {
+  background-color: #1e1e2e;
+  min-height: 1px;
+}
+
+/* ── Switch ──────────────────────────────────────────────────────────────────── */
+
+switch {
+  background-color: #2a2a3a;
+  border-radius: 12px;
+}
+
+switch:checked {
+  background-color: #6366f1;
+}
+
+switch slider {
+  background-color: #ffffff;
+  border-radius: 10px;
+  margin: 2px;
+}
+
+/* ── Scale (slider) ──────────────────────────────────────────────────────────── */
+
+scale trough {
+  background-color: #2a2a3a;
+  border-radius: 4px;
+  min-height: 4px;
+}
+
+scale highlight {
+  background-color: #6366f1;
+  border-radius: 4px;
+}
+
+scale slider {
+  background-color: #e2e2f0;
+  border-radius: 50%;
+  min-width: 14px;
+  min-height: 14px;
+  margin: -5px;
+}

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: AUR Package
+    url: https://aur.archlinux.org/packages/p2record-git
+    about: Install or update via yay -S p2record-git
+  - name: Website
+    url: https://varionetzwerk.github.io/p2record
+    about: Installation guide and feature overview

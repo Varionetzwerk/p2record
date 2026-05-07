@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=P2-Record
+GenericName=Game Clip Recorder
+Comment=Lightweight game clip recorder — ring buffer, instant replay, no browser
+Exec=p2record
+Icon=p2record
+Categories=Game;AudioVideo;Video;Recorder;
+Keywords=record;clip;game;replay;shadowplay;screen;
+StartupNotify=true
+StartupWMClass=p2record

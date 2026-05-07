@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Background -->
+  <rect width="64" height="64" rx="14" fill="#161620"/>
+  <!-- Camera body -->
+  <rect x="6" y="16" width="38" height="28" rx="6" fill="#6366f1"/>
+  <!-- Viewfinder -->
+  <polygon points="46,20 46,44 60,32" fill="#818cf8"/>
+  <!-- Lens -->
+  <circle cx="23" cy="30" r="9" fill="#0d0d12" opacity="0.45"/>
+  <circle cx="23" cy="30" r="5.5" fill="#a5b4fc" opacity="0.2"/>
+  <!-- Record indicator -->
+  <circle cx="37" cy="22" r="4.5" fill="#ef4444"/>
+  <circle cx="37" cy="22" r="2" fill="#fca5a5"/>
+</svg>

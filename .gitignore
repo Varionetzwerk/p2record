@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# App runtime
+python/pkg/
+python/src/
+
+# Logs
+*.log
+
+# Secrets / env
+.env
+.env.local
+
+# Editor
+.vscode/
+.idea/

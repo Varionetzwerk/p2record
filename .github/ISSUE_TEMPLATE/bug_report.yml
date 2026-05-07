@@ -1,0 +1,97 @@
+name: Bug Report
+description: Etwas funktioniert nicht / Something isn't working
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees:
+  - Varionetzwerk
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill in as much detail as possible.
+
+  - type: dropdown
+    id: display-server
+    attributes:
+      label: Display Server
+      description: Are you on Wayland or X11?
+      options:
+        - Wayland
+        - X11
+        - "Don't know"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: gpu
+    attributes:
+      label: GPU / Encoding
+      options:
+        - AMD (VAAPI)
+        - Intel (VAAPI)
+        - Software fallback (CPU)
+        - "Don't know"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: audio
+    attributes:
+      label: Audio setup
+      options:
+        - PipeWire + pipewire-pulse
+        - PulseAudio
+        - None
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Clear description of the bug.
+      placeholder: "When I press F9 to save a clip..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      placeholder: "The clip should be saved to ~/Videos/p2record/"
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start p2record
+        2. Press F8 to start recording
+        3. Press F9 to save
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Terminal output / logs
+      description: Run `p2record` from a terminal and paste the output here.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: p2record version
+      placeholder: "e.g. 0.2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: OS / Distro
+      placeholder: "e.g. Arch Linux, EndeavourOS, Manjaro"
+    validations:
+      required: true
