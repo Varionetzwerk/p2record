@@ -68,6 +68,8 @@ class Recorder:
         self._segment_lock = threading.Lock()      # held during save_clip to block cleanup
         self._cleanup_timer_id: Optional[int] = None
         self._monitor_timer_id: Optional[int] = None
+        self._crash_count = 0
+        self._last_crash_time: float = 0.0
 
         self.on_state_changed: Optional[Callable[[bool], None]] = None
         self.on_error: Optional[Callable[[str], None]] = None
@@ -604,25 +606,44 @@ class Recorder:
             self._is_recording = False
             self._process = None
             self._gst_process = None
-            # Timers remove themselves (return False), just clear the IDs
             self._cleanup_timer_id = None
             self._monitor_timer_id = None
-            # Clean up segment dir so next start() gets a fresh one
             if self._segment_dir:
                 shutil.rmtree(self._segment_dir, ignore_errors=True)
                 self._segment_dir = None
-            msg = 'Aufnahme unterbrochen'
-            try:
-                log = open('/tmp/p2record_ffmpeg.log').read()
-                lines = [l for l in log.splitlines() if l.strip()]
-                if lines:
-                    msg = f'FFmpeg: {lines[-1]}'
-            except Exception:
-                pass
             self._emit_state(False)
-            self._emit_error(msg)
+            self._emit_buffer_fill(0.0)
+
+            now = time.time()
+            # Reset counter if last crash was >60s ago
+            if now - self._last_crash_time > 60:
+                self._crash_count = 0
+            self._last_crash_time = now
+            self._crash_count += 1
+
+            if self._crash_count <= 3:
+                print(f'[Recorder] Prozess abgestürzt — Auto-Neustart #{self._crash_count} in 3s…')
+                GLib.timeout_add_seconds(3, self._auto_restart)
+            else:
+                self._crash_count = 0
+                msg = 'Aufnahme unterbrochen (zu viele Abstürze)'
+                try:
+                    log = open('/tmp/p2record_ffmpeg.log').read()
+                    lines = [l for l in log.splitlines() if l.strip()]
+                    if lines:
+                        msg = f'FFmpeg: {lines[-1]}'
+                except Exception:
+                    pass
+                print(f'[Recorder] Zu viele Abstürze — gebe auf: {msg}')
+                self._emit_error(msg)
             return False
         return True
+
+    def _auto_restart(self) -> bool:
+        if not self._is_recording and not self._portal_pending:
+            print('[Recorder] Auto-Neustart…')
+            self.start()
+        return False
 
     def _emit_state(self, recording: bool) -> None:
         if self.on_state_changed:
