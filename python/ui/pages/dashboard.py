@@ -174,8 +174,18 @@ class DashboardPage(Gtk.Box):
         self._game_label.set_text(game or t('dash.no_game'))
 
     def set_error(self, msg: str) -> None:
-        self._error_label.set_text(f'{t("dash.error_prefix")}{msg}')
+        if msg.endswith('…') or 'Neustart' in msg or 'restart' in msg.lower():
+            self._error_label.remove_css_class('error-label')
+            self._error_label.add_css_class('info-label')
+            self._error_label.set_text(msg)
+        else:
+            self._error_label.remove_css_class('info-label')
+            self._error_label.add_css_class('error-label')
+            self._error_label.set_text(f'{t("dash.error_prefix")}{msg}')
         self._error_label.set_visible(True)
+
+    def clear_error(self) -> None:
+        self._error_label.set_visible(False)
 
     def flash_saved(self, path: str) -> None:
         self._error_label.set_visible(False)

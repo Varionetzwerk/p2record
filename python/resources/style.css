@@ -223,6 +223,15 @@ window {
   padding: 8px 12px;
 }
 
+.info-label {
+  color: #a5b4fc;
+  font-size: 12px;
+  background-color: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
 .hint-label {
   font-size: 11px;
   color: #4a4a60;

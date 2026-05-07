@@ -611,22 +611,29 @@ class Recorder:
             if self._segment_dir:
                 shutil.rmtree(self._segment_dir, ignore_errors=True)
                 self._segment_dir = None
+
+            # Stop old Wayland portal session so the restart can create a fresh one
+            if self._portal_stop_event:
+                self._portal_stop_event.set()
+                self._portal_stop_event = None
+
             self._emit_state(False)
             self._emit_buffer_fill(0.0)
 
             now = time.time()
-            # Reset counter if last crash was >60s ago
             if now - self._last_crash_time > 60:
                 self._crash_count = 0
             self._last_crash_time = now
             self._crash_count += 1
 
             if self._crash_count <= 3:
-                print(f'[Recorder] Prozess abgestürzt — Auto-Neustart #{self._crash_count} in 3s…')
+                msg = f'Aufnahme unterbrochen – Neustart {self._crash_count}/3…'
+                print(f'[Recorder] {msg}')
+                self._emit_error(msg)
                 GLib.timeout_add_seconds(3, self._auto_restart)
             else:
                 self._crash_count = 0
-                msg = 'Aufnahme unterbrochen (zu viele Abstürze)'
+                msg = 'Aufnahme unterbrochen – zu viele Abstürze'
                 try:
                     log = open('/tmp/p2record_ffmpeg.log').read()
                     lines = [l for l in log.splitlines() if l.strip()]

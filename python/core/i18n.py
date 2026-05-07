@@ -7,8 +7,8 @@ _lang: str = 'de'
 
 _STRINGS: dict = {
     # ── App ───────────────────────────────────────────────────────────────────
-    'app.title':    {'de': 'P2-Record',          'en': 'P2-Record'},
-    'app.subtitle': {'de': 'Game Clip Recorder', 'en': 'Game Clip Recorder'},
+    'app.title':    {'de': 'P2-Record',                    'en': 'P2-Record'},
+    'app.subtitle': {'de': 'Game Clip Recorder · Alpha',  'en': 'Game Clip Recorder · Alpha'},
 
     # ── Update banner ─────────────────────────────────────────────────────────
     'update.available':    {'de': 'Update verfügbar — Version {version}',

@@ -246,6 +246,8 @@ class MainWindow(Adw.ApplicationWindow):
     def on_recording_state_changed(self, is_recording: bool) -> None:
         self._dashboard.set_recording(is_recording)
         if is_recording:
+            self._dashboard.clear_error()
+        if is_recording:
             self._rec_indicator.set_text(t('rec.on'))
             self._rec_indicator.remove_css_class('rec-off')
             self._rec_indicator.add_css_class('rec-on')
