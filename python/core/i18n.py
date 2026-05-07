@@ -10,6 +10,15 @@ _STRINGS: dict = {
     'app.title':    {'de': 'P2-Record',          'en': 'P2-Record'},
     'app.subtitle': {'de': 'Game Clip Recorder', 'en': 'Game Clip Recorder'},
 
+    # ── Update banner ─────────────────────────────────────────────────────────
+    'update.available': {'de': 'Update verfügbar — Version {version}',
+                         'en': 'Update available — version {version}'},
+    'update.btn':       {'de': 'Wie updaten?', 'en': 'How to update?'},
+    'update.dialog.title': {'de': 'Update installieren', 'en': 'Install update'},
+    'update.dialog.body':  {'de': 'Führe folgenden Befehl im Terminal aus:',
+                             'en': 'Run the following command in your terminal:'},
+    'update.dialog.close': {'de': 'Schließen', 'en': 'Close'},
+
     # ── Navigation / sidebar ──────────────────────────────────────────────────
     'nav.dashboard': {'de': 'Dashboard',       'en': 'Dashboard'},
     'nav.library':   {'de': 'Clip-Bibliothek', 'en': 'Clip Library'},

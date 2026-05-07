@@ -11,6 +11,7 @@ from ui.pages.help_page import HelpPage
 from ui.pages.library import LibraryPage
 from ui.pages.settings_page import SettingsPage
 from core.i18n import t
+from core.updater import check_for_update, CURRENT_VERSION
 
 
 class MainWindow(Adw.ApplicationWindow):
@@ -31,6 +32,15 @@ class MainWindow(Adw.ApplicationWindow):
         outer.append(header)
 
         outer.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
+
+        # ── Update banner ──────────────────────────────────────────────────────
+        self._update_banner = Adw.Banner(
+            title='',
+            button_label=t('update.btn'),
+            revealed=False,
+        )
+        self._update_banner.connect('button-clicked', self._on_update_clicked)
+        outer.append(self._update_banner)
 
         # ── Layout: sidebar + stack ────────────────────────────────────────────
         root = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -61,6 +71,48 @@ class MainWindow(Adw.ApplicationWindow):
         root.append(sep)
 
         root.append(self._stack)
+
+        # ── Check for updates (after UI is built) ──────────────────────────────
+        GLib.timeout_add_seconds(3, self._start_update_check)
+
+    def _start_update_check(self) -> bool:
+        check_for_update(self._on_update_result)
+        return False  # run once
+
+    def _on_update_result(self, latest: Optional[str]) -> None:
+        if not latest:
+            return
+        GLib.idle_add(self._show_update_banner, latest)
+
+    def _show_update_banner(self, version: str) -> bool:
+        self._update_banner.set_title(t('update.available', version=version))
+        self._update_banner.set_revealed(True)
+        self._latest_version = version
+        return False
+
+    def _on_update_clicked(self, _banner) -> None:
+        dialog = Adw.AlertDialog(
+            heading=t('update.dialog.title'),
+            body=t('update.dialog.body'),
+        )
+        # Command box
+        cmd_row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        cmd_row.set_margin_top(8)
+        frame = Gtk.Frame()
+        frame.add_css_class('card')
+        cmd_label = Gtk.Label(label='yay -S p2record-git')
+        cmd_label.add_css_class('monospace')
+        cmd_label.set_margin_top(12)
+        cmd_label.set_margin_bottom(12)
+        cmd_label.set_margin_start(16)
+        cmd_label.set_margin_end(16)
+        cmd_label.set_selectable(True)
+        frame.set_child(cmd_label)
+        cmd_row.append(frame)
+        dialog.set_extra_child(cmd_row)
+        dialog.add_response('close', t('update.dialog.close'))
+        dialog.set_default_response('close')
+        dialog.present(self)
 
     # ── Sidebar ────────────────────────────────────────────────────────────────
 
