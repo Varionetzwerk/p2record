@@ -81,6 +81,11 @@ class Recorder:
         if self._is_recording or self._portal_pending:
             return
 
+        # Clean up any leftover segment dir from a previous crash
+        if self._segment_dir:
+            shutil.rmtree(self._segment_dir, ignore_errors=True)
+            self._segment_dir = None
+
         if _is_wayland():
             print('[Recorder] Wayland erkannt → PipeWire-Portal wird geöffnet…')
             self._portal_pending = True
@@ -406,7 +411,7 @@ class Recorder:
         print(f'[Recorder] Aufnahme gestartet (Wayland/PipeWire, {enc})')
         GLib.idle_add(lambda: self._emit_state(True) or False)
         # GLib.timeout_add* is thread-safe — sources execute on the main loop
-        self._cleanup_timer_id = GLib.timeout_add_seconds(SEGMENT_SECS, self._cleanup_segments)
+        self._cleanup_timer_id = GLib.timeout_add(2000, self._cleanup_segments)
         self._monitor_timer_id = GLib.timeout_add(1000, self._monitor_process)
 
     # ── X11 path ───────────────────────────────────────────────────────────────
@@ -565,18 +570,20 @@ class Recorder:
         print(f'[Recorder] Aufnahme gestartet mit {enc}')
         GLib.idle_add(lambda: self._emit_state(True) or False)
         # GLib.timeout_add* is thread-safe — sources execute on the main loop
-        self._cleanup_timer_id = GLib.timeout_add_seconds(SEGMENT_SECS, self._cleanup_segments)
+        self._cleanup_timer_id = GLib.timeout_add(2000, self._cleanup_segments)
         self._monitor_timer_id = GLib.timeout_add(1000, self._monitor_process)
         return True
 
     def _cleanup_segments(self) -> bool:
-        if not self._segment_dir:
+        if not self._segment_dir or not self._is_recording:
             return False
         buf = self._settings.get('buffer_duration', 120)
-        max_segs = math.ceil(buf / SEGMENT_SECS) + 4
+        # +2: one segment currently being written + one safety margin for save_clip
+        max_segs = math.ceil(buf / SEGMENT_SECS) + 2
         segs = sorted(Path(self._segment_dir).glob('seg*.mkv'))
-        for old in segs[:-max_segs]:
-            old.unlink(missing_ok=True)
+        if len(segs) > max_segs:
+            for old in segs[:-max_segs]:
+                old.unlink(missing_ok=True)
         self._emit_buffer_fill(self.get_buffer_fill())
         return True
 
@@ -588,11 +595,13 @@ class Recorder:
             self._is_recording = False
             self._process = None
             self._gst_process = None
-            for tid in [self._cleanup_timer_id, self._monitor_timer_id]:
-                if tid:
-                    GLib.source_remove(tid)
+            # Timers remove themselves (return False), just clear the IDs
             self._cleanup_timer_id = None
             self._monitor_timer_id = None
+            # Clean up segment dir so next start() gets a fresh one
+            if self._segment_dir:
+                shutil.rmtree(self._segment_dir, ignore_errors=True)
+                self._segment_dir = None
             msg = 'Aufnahme unterbrochen'
             try:
                 log = open('/tmp/p2record_ffmpeg.log').read()
