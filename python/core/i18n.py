@@ -265,6 +265,7 @@ _STRINGS: dict = {
     },
 
     # ── App-level messages ────────────────────────────────────────────────────
+    'dash.saving':         {'de': 'Clip wird gespeichert…', 'en': 'Saving clip…'},
     'app.no_clip':         {'de': 'Noch kein Clip — mindestens 5 Sekunden nach Start warten.', 'en': 'No clip yet — wait at least 5 seconds after start.'},
     'app.clip_saved_title': {'de': 'Clip gespeichert', 'en': 'Clip saved'},
 }

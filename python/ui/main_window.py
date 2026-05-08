@@ -270,15 +270,36 @@ class MainWindow(Adw.ApplicationWindow):
         self._play_chime()
 
     def _play_chime(self) -> None:
-        # Simple system bell as fallback — GTK4 has no Web Audio API
-        # Real chime via paplay if available
-        import subprocess, shutil
-        if shutil.which('paplay'):
-            import threading
-            def _play():
-                try:
-                    subprocess.run(['paplay', '/usr/share/sounds/freedesktop/stereo/complete.oga'],
-                                   timeout=3, capture_output=True)
-                except Exception:
-                    pass
-            threading.Thread(target=_play, daemon=True).start()
+        import subprocess, shutil, threading
+        from pathlib import Path as _P
+
+        _SOUNDS = [
+            '/usr/share/sounds/freedesktop/stereo/complete.oga',
+            '/usr/share/sounds/freedesktop/stereo/bell.oga',
+            '/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga',
+            '/usr/share/sounds/gnome/default/alerts/glass.ogg',
+        ]
+
+        def _play():
+            for player in ('paplay', 'pw-play', 'aplay'):
+                if not shutil.which(player):
+                    continue
+                for sf in _SOUNDS:
+                    if not _P(sf).exists():
+                        continue
+                    try:
+                        if subprocess.run([player, sf], timeout=3,
+                                          capture_output=True).returncode == 0:
+                            return
+                    except Exception:
+                        continue
+            # Last resort: Gdk system bell
+            try:
+                from gi.repository import Gdk as _Gdk
+                display = _Gdk.Display.get_default()
+                if display:
+                    GLib.idle_add(display.beep)
+            except Exception:
+                pass
+
+        threading.Thread(target=_play, daemon=True).start()

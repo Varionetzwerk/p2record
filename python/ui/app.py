@@ -1,4 +1,5 @@
 import sys
+import time
 from pathlib import Path
 
 import gi
@@ -96,10 +97,20 @@ class P2RecordApp(Adw.Application):
 
     def _do_save_clip(self, clip_duration: int) -> None:
         import threading
+        from core.recorder import SEGMENT_SECS
+        # Show "saving…" immediately so the user gets instant feedback
+        GLib.idle_add(self._on_clip_saving)
         def _save():
+            # Wait for FFmpeg to finish writing the current segment so the clip
+            # includes footage right up to the moment the button was pressed.
+            time.sleep(SEGMENT_SECS)
             path = self.recorder.save_clip(clip_duration, self.current_game)
             GLib.idle_add(self._on_clip_saved, path)
         threading.Thread(target=_save, daemon=True).start()
+
+    def _on_clip_saving(self) -> None:
+        if hasattr(self, '_window'):
+            self._window.on_recorder_error(t('dash.saving'))
 
     def _on_clip_saved(self, path: str | None) -> None:
         if path and hasattr(self, '_window'):
