@@ -211,12 +211,24 @@ class Recorder:
     def get_buffer_fill(self) -> float:
         if not self._segment_dir or not self._is_recording:
             return 0.0
-        segs = list(Path(self._segment_dir).glob('seg*.mkv'))
+        segs = sorted(Path(self._segment_dir).glob('seg*.mkv'))
         if not segs:
             return 0.0
-        available = len(segs) * SEGMENT_SECS
         buf = self._settings.get('buffer_duration', 120)
-        return min(available / buf, 1.0)
+        buf_segs = math.ceil(buf / SEGMENT_SECS)
+        n = len(segs)
+        if n < buf_segs:
+            # Initial fill: 0 % → 100 %
+            return n / buf_segs
+        # Buffer full — show ring-buffer cycling so the bar resets each full rotation.
+        # Use the sequence number of the newest segment modulo buf_segs.
+        # Mapping: seq 1..buf_segs → 1/buf_segs..1.0, then repeats.
+        try:
+            last_num = int(segs[-1].stem[3:])          # "seg00042" → 42
+            cycle_pos = (last_num - 1) % buf_segs + 1  # 1 … buf_segs
+            return cycle_pos / buf_segs
+        except (ValueError, IndexError):
+            return 1.0
 
     # ── Wayland path ───────────────────────────────────────────────────────────
 
