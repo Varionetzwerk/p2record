@@ -163,29 +163,20 @@ class Recorder:
             except OSError:
                 return 0
 
-        # Snapshot the segment list BEFORE forcing a cut so we know exactly
-        # which files to include (the new post-cut segment is excluded).
-        segs_before_cut = sorted(Path(self._segment_dir).glob('seg*.mkv'))
+        # All segment files, sorted by sequence number.
+        all_segs = sorted(Path(self._segment_dir).glob('seg*.mkv'))
 
-        # Send SIGUSR1 to the FFmpeg process — the segment muxer responds by
-        # closing the current (partially-written) segment at the next keyframe
-        # and starting a fresh one.  This captures footage right up to now.
-        if self._process and self._process.poll() is None:
-            try:
-                self._process.send_signal(signal.SIGUSR1)
-                time.sleep(0.7)  # give FFmpeg time to finalise the segment
-            except Exception:
-                pass
+        # Exclude the last file — it is currently being written by FFmpeg and
+        # may have incomplete MKV framing.  All others are fully closed.
+        # Also filter out any unexpectedly tiny files (< 4096 bytes).
+        complete = [s for s in all_segs[:-1] if _size(s) > 4096]
 
-        # Use only the snapshot set (all finalized now) — naturally excludes
-        # the tiny new segment FFmpeg just opened after the cut.
-        segments = [s for s in segs_before_cut if _size(s) > 4096]
-        if not segments:
-            print('[Recorder] save_clip: keine fertigen Segmente — noch kein vollständiges 5-Sekunden-Segment')
+        if not complete:
+            print('[Recorder] save_clip: no completed segments yet')
             return None
 
         n_needed = math.ceil(clip_duration / SEGMENT_SECS) + 1
-        relevant = segments[-n_needed:]
+        relevant = complete[-n_needed:]
 
         output_dir = Path(self._settings.get('output_path'))
         output_dir.mkdir(parents=True, exist_ok=True)

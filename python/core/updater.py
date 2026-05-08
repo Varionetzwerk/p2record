@@ -3,7 +3,7 @@ import threading
 import urllib.request
 from typing import Callable, Optional
 
-CURRENT_VERSION = '0.2.9'
+CURRENT_VERSION = '0.2.10'
 _TAGS_URL = 'https://api.github.com/repos/Varionetzwerk/p2record/tags'
 
 
