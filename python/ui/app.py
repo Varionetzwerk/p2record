@@ -98,11 +98,14 @@ class P2RecordApp(Adw.Application):
     def _do_save_clip(self, clip_duration: int) -> None:
         import threading
         from core.recorder import SEGMENT_SECS
-        # Show "saving…" immediately so the user gets instant feedback
         GLib.idle_add(self._on_clip_saving)
         def _save():
-            # Wait for FFmpeg to finish writing the current segment so the clip
-            # includes footage right up to the moment the button was pressed.
+            # Play pling immediately — FFmpeg records it into the ring buffer,
+            # so the sound ends up inside the saved clip.
+            if hasattr(self, '_window'):
+                self._window._play_chime()
+            # Wait for FFmpeg to finish writing the current segment.
+            # The pling is now captured and the clip will include it.
             time.sleep(SEGMENT_SECS)
             path = self.recorder.save_clip(clip_duration, self.current_game)
             GLib.idle_add(self._on_clip_saved, path)

@@ -267,7 +267,6 @@ class MainWindow(Adw.ApplicationWindow):
 
     def on_clip_saved(self, path: str) -> None:
         self._dashboard.flash_saved(path)
-        self._play_chime()
 
     def _play_chime(self) -> None:
         import subprocess, shutil, threading
