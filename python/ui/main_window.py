@@ -229,6 +229,11 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_nav_toggled(self, btn: Gtk.ToggleButton, page: str) -> None:
         if not btn.get_active():
+            # Clicking the active button must not deselect it — re-activate
+            if self._stack.get_visible_child_name() == page:
+                btn.handler_block_by_func(self._on_nav_toggled)
+                btn.set_active(True)
+                btn.handler_unblock_by_func(self._on_nav_toggled)
             return
         # Deactivate other buttons
         for name, other in self._nav_btns.items():

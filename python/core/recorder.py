@@ -70,6 +70,7 @@ class Recorder:
         self._monitor_timer_id: Optional[int] = None
         self._crash_count = 0
         self._last_crash_time: float = 0.0
+        self._restart_timer_id: Optional[int] = None
 
         self.on_state_changed: Optional[Callable[[bool], None]] = None
         self.on_error: Optional[Callable[[str], None]] = None
@@ -102,6 +103,11 @@ class Recorder:
             threading.Thread(target=self._start_x11, daemon=True).start()
 
     def stop(self) -> None:
+        # Cancel any pending auto-restart — a manual stop must win over it
+        if self._restart_timer_id:
+            GLib.source_remove(self._restart_timer_id)
+            self._restart_timer_id = None
+        self._crash_count = 0
         if not self._is_recording:
             return
         self._is_recording = False
@@ -157,6 +163,11 @@ class Recorder:
             return self._do_save_clip(clip_duration, game_name)
 
     def _do_save_clip(self, clip_duration: int, game_name: Optional[str]) -> Optional[str]:
+        # Snapshot — stop()/_monitor_process may null _segment_dir mid-save
+        seg_dir = self._segment_dir
+        if not seg_dir:
+            return None
+
         def _size(p: Path) -> int:
             try:
                 return p.stat().st_size
@@ -164,7 +175,7 @@ class Recorder:
                 return 0
 
         # All segment files, sorted by sequence number.
-        all_segs = sorted(Path(self._segment_dir).glob('seg*.mkv'))
+        all_segs = sorted(Path(seg_dir).glob('seg*.mkv'))
 
         # Exclude the last file — it is currently being written by FFmpeg and
         # may have incomplete MKV framing.  All others are fully closed.
@@ -244,6 +255,10 @@ class Recorder:
                 'Bitte im Dialog einen Monitor auswählen und P2-Record erlauben.'
             )
             return
+        if width <= 0 or height <= 0:
+            # Some portals return no stream size — fall back to Full HD
+            width, height = 1920, 1080
+
         self._segment_dir = tempfile.mkdtemp(prefix='p2record_')
         vaapi_dev = _vaapi_device()
 
@@ -273,11 +288,14 @@ class Recorder:
     ) -> List[str]:
         # fd=  → connects to the portal's isolated PipeWire remote (not global server)
         # path= → selects the node within that remote by serial/id
+        # videoscale → required when the resolution cap shrinks the frame;
+        #              caps alone don't scale and negotiation would fail
         # videorate → ensures stable fps regardless of compositor output rate
         return [
             'gst-launch-1.0', '-q',
             'pipewiresrc', f'fd={pw_fd}', f'path={node_id}', 'do-timestamp=true',
             '!', 'videoconvert',
+            '!', 'videoscale',
             '!', 'videorate',
             '!', f'video/x-raw,format=NV12,width={width},height={height},framerate={fps}/1',
             '!', 'fdsink', 'fd=1',
@@ -369,6 +387,11 @@ class Recorder:
         print(f'[Recorder] FFmpeg:    {" ".join(ffmpeg_cmd)}')
         try:
             log_path = '/tmp/p2record_ffmpeg.log'
+            if self._log_file:
+                try:
+                    self._log_file.close()
+                except Exception:
+                    pass
             self._log_file = open(log_path, 'w')
 
             self._gst_process = subprocess.Popen(
@@ -394,6 +417,7 @@ class Recorder:
             self._gst_process.stdout.close()
 
         except FileNotFoundError as e:
+            self._cleanup_failed_launch()
             self._portal_pending = False
             GLib.idle_add(lambda: self._emit_error(f'Programm nicht gefunden: {e.filename}') or False)
             return
@@ -402,13 +426,9 @@ class Recorder:
         time.sleep(1.0)
 
         if self._gst_process.poll() is not None or self._process.poll() is not None:
-            try:
-                err = open('/tmp/p2record_ffmpeg.log').read().strip()
-                lines = [l for l in err.splitlines() if l.strip()]
-                msg = lines[-1] if lines else 'Start fehlgeschlagen'
-            except Exception:
-                msg = 'Wayland-Aufnahme-Start fehlgeschlagen'
+            msg = self._last_log_line('Wayland-Aufnahme-Start fehlgeschlagen')
             print(f'[Recorder] Wayland start failed: {msg}')
+            self._cleanup_failed_launch()
             self._portal_pending = False
             GLib.idle_add(lambda: self._emit_error(msg) or False)
             return
@@ -433,7 +453,7 @@ class Recorder:
             if self._launch(cmd, vaapi=True):
                 return
         cmd = self._build_software_cmd()
-        self._launch(cmd, vaapi=False)
+        self._launch(cmd, vaapi=False, emit_on_fail=True)
 
     def _get_monitor(self) -> Optional[Monitor]:
         monitors = list_monitors()
@@ -542,12 +562,46 @@ class Recorder:
 
     # ── Internal ───────────────────────────────────────────────────────────────
 
-    def _launch(self, cmd: List[str], vaapi: bool) -> bool:
+    def _last_log_line(self, default: str) -> str:
+        try:
+            log = open('/tmp/p2record_ffmpeg.log').read()
+            lines = [l for l in log.splitlines() if l.strip()]
+            return lines[-1] if lines else default
+        except Exception:
+            return default
+
+    def _cleanup_failed_launch(self) -> None:
+        """Kill any half-started processes and release the log file."""
+        for proc in (self._gst_process, self._process):
+            if proc and proc.poll() is None:
+                try:
+                    proc.kill()
+                    proc.wait(timeout=2)
+                except Exception:
+                    pass
+        self._gst_process = None
+        self._process = None
+        if self._log_file:
+            try:
+                self._log_file.close()
+            except Exception:
+                pass
+            self._log_file = None
+        if self._portal_stop_event:
+            self._portal_stop_event.set()
+            self._portal_stop_event = None
+
+    def _launch(self, cmd: List[str], vaapi: bool, emit_on_fail: bool = False) -> bool:
         # Runs in a background thread — use GLib.idle_add for GTK/GLib calls.
         print(f'[Recorder] Starting ({"VAAPI" if vaapi else "software"}):')
         print(' ', ' '.join(cmd))
         try:
             log_path = '/tmp/p2record_ffmpeg.log'
+            if self._log_file:
+                try:
+                    self._log_file.close()
+                except Exception:
+                    pass
             self._log_file = open(log_path, 'w')
             self._process = subprocess.Popen(
                 cmd,
@@ -556,21 +610,20 @@ class Recorder:
                 stderr=self._log_file,
             )
         except FileNotFoundError:
+            self._cleanup_failed_launch()
             GLib.idle_add(lambda: self._emit_error('ffmpeg nicht gefunden — sudo pacman -S ffmpeg') or False)
             return False
 
         import time
         time.sleep(0.8)
         if self._process.poll() is not None:
-            try:
-                err = open('/tmp/p2record_ffmpeg.log').read().strip()
-                last = [l for l in err.splitlines() if l.strip()]
-                msg = last[-1] if last else 'Unbekannter Fehler'
-            except Exception:
-                msg = 'FFmpeg-Start fehlgeschlagen'
+            msg = self._last_log_line('FFmpeg-Start fehlgeschlagen')
             print(f'[Recorder] FFmpeg failed: {msg}')
             if vaapi:
                 print('[Recorder] VAAPI fehlgeschlagen, versuche Software-Encoding…')
+            if emit_on_fail:
+                GLib.idle_add(lambda m=msg: self._emit_error(m) or False)
+            self._cleanup_failed_launch()
             return False
 
         self._using_vaapi = vaapi
@@ -606,11 +659,25 @@ class Recorder:
         ffmpeg_dead = self._process and self._process.poll() is not None
 
         if gst_dead or ffmpeg_dead:
+            # Kill the surviving half of the pipeline so it can't linger
+            for proc in (self._gst_process, self._process):
+                if proc and proc.poll() is None:
+                    try:
+                        proc.kill()
+                        proc.wait(timeout=2)
+                    except Exception:
+                        pass
             self._is_recording = False
             self._process = None
             self._gst_process = None
             self._cleanup_timer_id = None
             self._monitor_timer_id = None
+            if self._log_file:
+                try:
+                    self._log_file.close()
+                except Exception:
+                    pass
+                self._log_file = None
             if self._segment_dir:
                 shutil.rmtree(self._segment_dir, ignore_errors=True)
                 self._segment_dir = None
@@ -633,23 +700,18 @@ class Recorder:
                 msg = f'Aufnahme unterbrochen – Neustart {self._crash_count}/3…'
                 print(f'[Recorder] {msg}')
                 self._emit_error(msg)
-                GLib.timeout_add_seconds(3, self._auto_restart)
+                self._restart_timer_id = GLib.timeout_add_seconds(3, self._auto_restart)
             else:
                 self._crash_count = 0
-                msg = 'Aufnahme unterbrochen – zu viele Abstürze'
-                try:
-                    log = open('/tmp/p2record_ffmpeg.log').read()
-                    lines = [l for l in log.splitlines() if l.strip()]
-                    if lines:
-                        msg = f'FFmpeg: {lines[-1]}'
-                except Exception:
-                    pass
+                last = self._last_log_line('')
+                msg = f'FFmpeg: {last}' if last else 'Aufnahme unterbrochen – zu viele Abstürze'
                 print(f'[Recorder] Zu viele Abstürze — gebe auf: {msg}')
                 self._emit_error(msg)
             return False
         return True
 
     def _auto_restart(self) -> bool:
+        self._restart_timer_id = None
         if not self._is_recording and not self._portal_pending:
             print('[Recorder] Auto-Neustart…')
             self.start()

@@ -3,7 +3,7 @@ import threading
 import urllib.request
 from typing import Callable, Optional
 
-CURRENT_VERSION = '0.2.13'
+CURRENT_VERSION = '0.2.14'
 _TAGS_URL = 'https://api.github.com/repos/Varionetzwerk/p2record/tags'
 
 
@@ -35,7 +35,12 @@ def check_for_update(callback: Callable[[Optional[str]], None]) -> None:
             if not tags:
                 callback(None)
                 return
-            latest = tags[0]['name'].lstrip('v')
+            # GitHub does not guarantee tag order — pick the highest version
+            names = [tg.get('name', '') for tg in tags]
+            latest = max(names, key=_parse, default='').lstrip('v')
+            if not latest:
+                callback(None)
+                return
             callback(latest if is_newer(latest) else '')
         except Exception:
             callback(None)

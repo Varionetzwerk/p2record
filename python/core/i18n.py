@@ -127,11 +127,14 @@ _STRINGS: dict = {
     },
 
     # ── Library ───────────────────────────────────────────────────────────────
-    'library.title':       {'de': 'Clip-Bibliothek',    'en': 'Clip Library'},
-    'library.empty':       {'de': 'Keine Clips gespeichert', 'en': 'No clips saved'},
-    'library.open_folder': {'de': 'Ordner öffnen',      'en': 'Open folder'},
-    'library.play':        {'de': 'Abspielen',           'en': 'Play'},
-    'library.delete':      {'de': 'Löschen',             'en': 'Delete'},
+    'library.title':        {'de': 'Clip-Bibliothek',    'en': 'Clip Library'},
+    'library.empty':        {'de': 'Keine Clips gespeichert', 'en': 'No clips saved'},
+    'library.open_folder':  {'de': 'Ordner öffnen',      'en': 'Open folder'},
+    'library.play':         {'de': 'Abspielen',           'en': 'Play'},
+    'library.delete':       {'de': 'Löschen',             'en': 'Delete'},
+    'library.delete_title': {'de': 'Clip löschen?',       'en': 'Delete clip?'},
+    'library.cancel':       {'de': 'Abbrechen',           'en': 'Cancel'},
+    'library.summary':      {'de': '{n} Clips · {size}',  'en': '{n} clips · {size}'},
 
     # ── Help ──────────────────────────────────────────────────────────────────
     'help.title': {'de': 'Anleitung', 'en': 'Guide'},
@@ -267,6 +270,7 @@ _STRINGS: dict = {
     # ── App-level messages ────────────────────────────────────────────────────
     'dash.saving':         {'de': 'Clip wird gespeichert…', 'en': 'Saving clip…'},
     'app.no_clip':         {'de': 'Noch kein Clip — mindestens 5 Sekunden nach Start warten.', 'en': 'No clip yet — wait at least 5 seconds after start.'},
+    'app.not_recording':   {'de': 'Keine Aufnahme aktiv — zuerst die Aufnahme starten.', 'en': 'Not recording — start recording first.'},
     'app.clip_saved_title': {'de': 'Clip gespeichert', 'en': 'Clip saved'},
 }
 

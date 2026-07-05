@@ -29,8 +29,15 @@ class ClipManager:
         if not output_dir.exists():
             return []
 
+        entries = []
+        for f in output_dir.glob('*.mp4'):
+            try:
+                entries.append((f.stat().st_mtime, f))
+            except OSError:
+                continue  # deleted between glob and stat
+
         clips = []
-        for f in sorted(output_dir.glob('*.mp4'), key=lambda p: p.stat().st_mtime, reverse=True):
+        for _, f in sorted(entries, reverse=True):
             clip = self._make_clip(f)
             if clip:
                 clips.append(clip)
@@ -69,7 +76,7 @@ class ClipManager:
     def _make_clip(self, path: Path) -> Optional[Clip]:
         try:
             stat = path.stat()
-        except FileNotFoundError:
+        except OSError:
             return None
 
         duration = self._probe_duration(path)

@@ -11,7 +11,7 @@ DEFAULTS: dict = {
     'output_path': str(Path.home() / 'Videos' / 'P2-Record'),
     'save_hotkey': 'F9',
     'toggle_hotkey': '',
-    'audio_source': 'desktop',  # 'none' | 'desktop' | 'mic'
+    'audio_source': 'desktop',  # 'none' | 'desktop' | 'mic' | 'both'
     'capture_monitor': '',      # monitor name, e.g. "HDMI-A-1"; '' = primary
     'minimize_to_tray': True,
     'show_notifications': True,
@@ -40,8 +40,11 @@ class Settings:
         self._data = dict(DEFAULTS)
 
     def _save(self):
-        _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        _CONFIG_FILE.write_text(json.dumps(self._data, indent=2))
+        try:
+            _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+            _CONFIG_FILE.write_text(json.dumps(self._data, indent=2))
+        except OSError as e:
+            print(f'[Settings] Speichern fehlgeschlagen: {e}')
 
     def get(self, key: str, fallback=None):
         return self._data.get(key, DEFAULTS.get(key, fallback))

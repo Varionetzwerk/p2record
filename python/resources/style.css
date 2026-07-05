@@ -9,6 +9,35 @@ window {
   font-family: "Inter", "Cantarell", sans-serif;
 }
 
+headerbar {
+  background-color: #0d0d12;
+  color: #e2e2f0;
+  box-shadow: none;
+}
+
+button:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.45);
+  outline-offset: 1px;
+}
+
+tooltip {
+  background-color: #1e1e2e;
+  color: #c8c8e8;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+}
+
+scrollbar slider {
+  background-color: #2a2a3a;
+  border-radius: 8px;
+  min-width: 6px;
+  min-height: 6px;
+}
+
+scrollbar slider:hover {
+  background-color: #3d3d5c;
+}
+
 /* ── Sidebar ─────────────────────────────────────────────────────────────────── */
 
 .sidebar {
@@ -43,8 +72,10 @@ window {
 }
 
 .nav-btn:checked {
-  background-color: rgba(99, 102, 241, 0.20);
+  background-color: rgba(99, 102, 241, 0.18);
   color: #a5b4fc;
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 #6366f1;
 }
 
 .rec-indicator {
@@ -124,6 +155,7 @@ window {
 
 .buffer-progress progress {
   background-color: #6366f1;
+  background-image: linear-gradient(to right, #6366f1, #a78bfa);
   border-radius: 4px;
 }
 
@@ -143,6 +175,10 @@ window {
   background-color: #252540;
 }
 
+.btn-primary:active {
+  background-color: #2b2b4a;
+}
+
 .btn-accent {
   background-color: #6366f1;
   color: #ffffff;
@@ -156,6 +192,10 @@ window {
 
 .btn-accent:hover {
   background-color: #5254cc;
+}
+
+.btn-accent:active {
+  background-color: #4649b8;
 }
 
 .btn-danger {
@@ -172,6 +212,10 @@ window {
   background-color: #991b1b;
 }
 
+.btn-danger:active {
+  background-color: #b91c1c;
+}
+
 .btn-secondary {
   background-color: #1e1e2e;
   color: #8888aa;
@@ -185,6 +229,10 @@ window {
 .btn-secondary:hover {
   background-color: #252538;
   color: #c8c8e8;
+}
+
+.btn-secondary:active {
+  background-color: #2b2b42;
 }
 
 .btn-danger-small {
@@ -212,6 +260,12 @@ window {
   border-radius: 6px;
   padding: 3px 10px;
   font-size: 12px;
+  animation: fade-in 200ms ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .error-label {
@@ -296,6 +350,10 @@ window {
   min-width: 140px;
 }
 
+.settings-dropdown:hover {
+  border-color: #3d3d5c;
+}
+
 /* ── Status banners ──────────────────────────────────────────────────────────── */
 
 .status-ok {
@@ -330,6 +388,7 @@ window {
 
 .clip-list row:hover {
   background-color: #1e1e30;
+  border-color: #3d3d5c;
 }
 
 .clip-row {
@@ -413,8 +472,12 @@ scale highlight {
 
 scale slider {
   background-color: #e2e2f0;
-  border-radius: 50%;
+  border-radius: 999px;
   min-width: 14px;
   min-height: 14px;
   margin: -5px;
+}
+
+scale slider:hover {
+  background-color: #ffffff;
 }

@@ -6,7 +6,7 @@ from typing import Optional
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
-from gi.repository import GdkPixbuf, GLib, Gtk
+from gi.repository import Adw, GdkPixbuf, GLib, Gtk
 
 from core.clip_manager import Clip
 from core.i18n import t
@@ -16,6 +16,8 @@ class LibraryPage(Gtk.Box):
     def __init__(self, app):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self._app = app
+        self._loading = False
+        self._clips: list[Clip] = []
         self._build()
 
     def _build(self) -> None:
@@ -31,6 +33,11 @@ class LibraryPage(Gtk.Box):
         title.set_halign(Gtk.Align.START)
         title.set_hexpand(True)
         header.append(title)
+
+        self._summary_lbl = Gtk.Label(label='')
+        self._summary_lbl.add_css_class('clip-meta')
+        self._summary_lbl.set_margin_end(10)
+        header.append(self._summary_lbl)
 
         refresh_btn = Gtk.Button()
         refresh_btn.set_icon_name('view-refresh-symbolic')
@@ -60,7 +67,23 @@ class LibraryPage(Gtk.Box):
         scroll.set_child(self._list_box)
 
     def refresh(self) -> None:
-        clips = self._app.clip_manager.list_clips()
+        # list_clips() runs ffprobe per clip — do it off the main thread
+        if self._loading:
+            return
+        self._loading = True
+
+        def _load():
+            try:
+                clips = self._app.clip_manager.list_clips()
+            except Exception:
+                clips = []
+            GLib.idle_add(self._populate, clips)
+
+        threading.Thread(target=_load, daemon=True).start()
+
+    def _populate(self, clips: list) -> bool:
+        self._loading = False
+        self._clips = list(clips)
 
         # Clear list
         while True:
@@ -70,16 +93,28 @@ class LibraryPage(Gtk.Box):
             self._list_box.remove(row)
 
         if not clips:
+            self._update_summary()
             self._empty_label.set_visible(True)
             self._list_box.set_visible(False)
-            return
+            return False
 
+        self._update_summary()
         self._empty_label.set_visible(False)
         self._list_box.set_visible(True)
 
         for clip in clips:
             row = self._make_clip_row(clip)
             self._list_box.append(row)
+        return False
+
+    def _update_summary(self) -> None:
+        if self._clips:
+            total = sum(c.size for c in self._clips)
+            self._summary_lbl.set_text(
+                t('library.summary', n=len(self._clips), size=self._fmt_size(total))
+            )
+        else:
+            self._summary_lbl.set_text('')
 
     def _make_clip_row(self, clip: Clip) -> Gtk.Widget:
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
@@ -169,7 +204,23 @@ class LibraryPage(Gtk.Box):
         subprocess.Popen(['xdg-open', file_path])
 
     def _delete(self, clip: Clip, row: Gtk.Widget) -> None:
+        dialog = Adw.AlertDialog(
+            heading=t('library.delete_title'),
+            body=clip.name,
+        )
+        dialog.add_response('cancel', t('library.cancel'))
+        dialog.add_response('delete', t('library.delete'))
+        dialog.set_response_appearance('delete', Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_default_response('cancel')
+        dialog.connect('response', self._on_delete_response, clip, row)
+        dialog.present(self.get_root())
+
+    def _on_delete_response(self, dialog, response: str, clip: Clip, row: Gtk.Widget) -> None:
+        if response != 'delete':
+            return
         self._app.clip_manager.delete_clip(clip.file_path)
+        self._clips = [c for c in self._clips if c.file_path != clip.file_path]
+        self._update_summary()
         # ListBox wraps children in ListBoxRow — remove the parent row
         list_row = row.get_parent()
         if list_row:

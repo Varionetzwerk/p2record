@@ -30,6 +30,7 @@ class P2RecordApp(Adw.Application):
         self.hotkeys = HotkeyManager()
         self.clip_manager = ClipManager(self.settings)
         self.current_game: str | None = None
+        self._saving = False
 
         self.game_detector = GameDetector(self._on_game_changed)
 
@@ -98,16 +99,26 @@ class P2RecordApp(Adw.Application):
     def _do_save_clip(self, clip_duration: int) -> None:
         import threading
         from core.recorder import SEGMENT_SECS
+        if self._saving:
+            return  # a save is already in flight — ignore hotkey spam
+        if not self.recorder.is_recording:
+            if hasattr(self, '_window'):
+                self._window.on_recorder_error(t('app.not_recording'))
+            return
+        self._saving = True
         GLib.idle_add(self._on_clip_saving)
         def _save():
-            # Play pling immediately — FFmpeg records it into the ring buffer,
-            # so the sound ends up inside the saved clip.
-            if hasattr(self, '_window'):
-                self._window._play_chime()
-            # Wait for FFmpeg to finish writing the current segment.
-            # The pling is now captured and the clip will include it.
-            time.sleep(SEGMENT_SECS)
-            path = self.recorder.save_clip(clip_duration, self.current_game)
+            try:
+                # Play pling immediately — FFmpeg records it into the ring buffer,
+                # so the sound ends up inside the saved clip.
+                if hasattr(self, '_window'):
+                    self._window._play_chime()
+                # Wait for FFmpeg to finish writing the current segment.
+                # The pling is now captured and the clip will include it.
+                time.sleep(SEGMENT_SECS)
+                path = self.recorder.save_clip(clip_duration, self.current_game)
+            finally:
+                self._saving = False
             GLib.idle_add(self._on_clip_saved, path)
         threading.Thread(target=_save, daemon=True).start()
 

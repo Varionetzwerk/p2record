@@ -45,8 +45,47 @@ if ! git remote get-url origin &>/dev/null; then
     die "No 'origin' remote. Run:\n  git remote add origin https://github.com/YOUR-USER/p2record.git"
 fi
 
+# ── push to AUR ───────────────────────────────────────────────────────────────
+push_aur() {
+    if ! git remote get-url aur &>/dev/null; then
+        warn "No 'aur' remote configured — skipping AUR push"
+        echo ""
+        echo "  To add AUR remote (after package is registered on aur.archlinux.org):"
+        echo "  git remote add aur ssh://aur@aur.archlinux.org/p2record-git.git"
+        echo ""
+        echo "  GitHub: https://github.com/Varionetzwerk/p2record"
+        return
+    fi
+
+    AUR_TMPDIR=$(mktemp -d)
+    trap "rm -rf $AUR_TMPDIR" EXIT
+
+    info "Preparing AUR push..."
+    AUR_URL=$(git remote get-url aur)
+    git clone "$AUR_URL" "$AUR_TMPDIR/aur-repo" 2>/dev/null || {
+        mkdir -p "$AUR_TMPDIR/aur-repo"
+        git -C "$AUR_TMPDIR/aur-repo" init
+        git -C "$AUR_TMPDIR/aur-repo" remote add origin "$AUR_URL"
+    }
+
+    cp "$PKGBUILD"                       "$AUR_TMPDIR/aur-repo/PKGBUILD"
+    cp "$SRCINFO"                        "$AUR_TMPDIR/aur-repo/.SRCINFO"
+    cp "$ROOT/python/p2record.install"   "$AUR_TMPDIR/aur-repo/p2record.install"
+
+    git -C "$AUR_TMPDIR/aur-repo" add PKGBUILD .SRCINFO p2record.install
+    if git -C "$AUR_TMPDIR/aur-repo" diff --cached --quiet; then
+        warn "AUR: no changes in PKGBUILD/.SRCINFO"
+    else
+        git -C "$AUR_TMPDIR/aur-repo" commit -m "update to $TAG"
+        git -C "$AUR_TMPDIR/aur-repo" push origin master
+        ok "AUR updated"
+    fi
+}
+
 # ── aur-only shortcut ────────────────────────────────────────────────────────
 if $AUR_ONLY; then
+    TAG=$(git tag --sort=-v:refname | head -1)
+    TAG="${TAG:-untagged}"
     push_aur
     exit 0
 fi
@@ -120,42 +159,7 @@ else
     warn "makepkg not found — skipping .SRCINFO regeneration"
 fi
 
-# ── push to AUR ───────────────────────────────────────────────────────────────
-push_aur() {
-    if ! git remote get-url aur &>/dev/null; then
-        warn "No 'aur' remote configured — skipping AUR push"
-        echo ""
-        echo "  To add AUR remote (after package is registered on aur.archlinux.org):"
-        echo "  git remote add aur ssh://aur@aur.archlinux.org/p2record-git.git"
-        echo ""
-        echo "  GitHub: https://github.com/Varionetzwerk/p2record"
-        return
-    fi
-
-    AUR_TMPDIR=$(mktemp -d)
-    trap "rm -rf $AUR_TMPDIR" EXIT
-
-    info "Preparing AUR push..."
-    AUR_URL=$(git remote get-url aur)
-    git clone "$AUR_URL" "$AUR_TMPDIR/aur-repo" 2>/dev/null || {
-        mkdir -p "$AUR_TMPDIR/aur-repo"
-        git -C "$AUR_TMPDIR/aur-repo" init
-        git -C "$AUR_TMPDIR/aur-repo" remote add origin "$AUR_URL"
-    }
-
-    cp "$PKGBUILD"                       "$AUR_TMPDIR/aur-repo/PKGBUILD"
-    cp "$SRCINFO"                        "$AUR_TMPDIR/aur-repo/.SRCINFO"
-    cp "$ROOT/python/p2record.install"   "$AUR_TMPDIR/aur-repo/p2record.install"
-
-    git -C "$AUR_TMPDIR/aur-repo" add PKGBUILD .SRCINFO p2record.install
-    if git -C "$AUR_TMPDIR/aur-repo" diff --cached --quiet; then
-        warn "AUR: no changes in PKGBUILD/.SRCINFO"
-    else
-        git -C "$AUR_TMPDIR/aur-repo" commit -m "update to $TAG"
-        git -C "$AUR_TMPDIR/aur-repo" push origin master
-        ok "AUR updated"
-    fi
-}
+# ── push to AUR ──────────────────────────────────────────────────────────────
 
 push_aur
 

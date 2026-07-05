@@ -114,6 +114,8 @@ class HotkeyManager:
 
         self._x11_display = None
         self._x11_thread: Optional[threading.Thread] = None
+        # python-xlib Display is NOT thread-safe — guard all access with a lock
+        self._x11_lock = threading.Lock()
 
         self._running = False
         self.using_evdev = False
@@ -146,7 +148,8 @@ class HotkeyManager:
                 pass
         if self._x11_display:
             try:
-                self._x11_display.close()
+                with self._x11_lock:
+                    self._x11_display.close()
             except Exception:
                 pass
 
@@ -162,9 +165,10 @@ class HotkeyManager:
         self._hotkeys_evdev.clear()
         if self.using_x11 and self._x11_display:
             try:
-                root = self._x11_display.screen().root
-                root.ungrab_key(_X.AnyKey, _X.AnyModifier)
-                self._x11_display.flush()
+                with self._x11_lock:
+                    root = self._x11_display.screen().root
+                    root.ungrab_key(_X.AnyKey, _X.AnyModifier)
+                    self._x11_display.flush()
             except Exception:
                 pass
         self._hotkeys_x11.clear()
@@ -223,8 +227,19 @@ class HotkeyManager:
                                 self._fire_evdev(event.code)
                             elif event.value == 0:
                                 self._pressed.discard(event.code)
+                except BlockingIOError:
+                    continue
                 except OSError:
-                    pass
+                    # Device unplugged — deregister it, otherwise select()
+                    # reports it ready forever and we busy-loop at 100 % CPU
+                    try:
+                        sel.unregister(dev)
+                    except Exception:
+                        pass
+                    try:
+                        dev.close()
+                    except Exception:
+                        pass
         sel.close()
 
     def _fire_evdev(self, code: int) -> None:
@@ -253,20 +268,21 @@ class HotkeyManager:
         if keysym is None:
             print(f'[Hotkeys] X11: unbekannte Taste {accel!r}')
             return
-        keycode = self._x11_display.keysym_to_keycode(keysym)
+        with self._x11_lock:
+            keycode = self._x11_display.keysym_to_keycode(keysym)
+            if keycode != 0:
+                root = self._x11_display.screen().root
+                # Grab with and without CapsLock / NumLock
+                for extra in [0, _X.LockMask, _X.Mod2Mask, _X.LockMask | _X.Mod2Mask]:
+                    try:
+                        root.grab_key(keycode, modmask | extra, True,
+                                      _X.GrabModeAsync, _X.GrabModeAsync)
+                    except Exception:
+                        pass
+                self._x11_display.flush()
         if keycode == 0:
             print(f'[Hotkeys] X11: kein Keycode für {accel!r}')
             return
-
-        root = self._x11_display.screen().root
-        # Grab with and without CapsLock / NumLock
-        for extra in [0, _X.LockMask, _X.Mod2Mask, _X.LockMask | _X.Mod2Mask]:
-            try:
-                root.grab_key(keycode, modmask | extra, True,
-                              _X.GrabModeAsync, _X.GrabModeAsync)
-            except Exception:
-                pass
-        self._x11_display.flush()
         self._hotkeys_x11[keycode] = (modmask, callback)
         print(f'[Hotkeys] Registriert (X11): {accel}  keycode={keycode}')
 
@@ -285,10 +301,13 @@ class HotkeyManager:
 
         while self._running:
             try:
-                if self._x11_display.pending_events() == 0:
+                event = None
+                with self._x11_lock:
+                    if self._x11_display.pending_events() > 0:
+                        event = self._x11_display.next_event()
+                if event is None:
                     time.sleep(0.05)
                     continue
-                event = self._x11_display.next_event()
                 if event.type == _X.KeyPress:
                     now = time.monotonic()
                     if now - _last_fire.get(event.detail, 0) > 0.4:

@@ -15,6 +15,8 @@ class DashboardPage(Gtk.Box):
         self._app = app
         self._saved_timer_id: Optional[int] = None
         self._build()
+        # Keep the hotkey/clip-length hint in sync with the settings page
+        app.settings.connect_changed(self._on_setting_changed)
 
     def _build(self) -> None:
         # ── Header ─────────────────────────────────────────────────────────────
@@ -137,14 +139,22 @@ class DashboardPage(Gtk.Box):
 
         card.append(btn_row)
 
-        save_key = self._app.settings.get('save_hotkey', 'F9')
-        dur = self._fmt(self._app.settings.get('clip_duration', 60))
-        hint = Gtk.Label(label=t('dash.hotkey_hint', key=save_key, dur=dur))
-        hint.add_css_class('hint-label')
-        hint.set_halign(Gtk.Align.START)
-        card.append(hint)
+        self._hint_lbl = Gtk.Label()
+        self._hint_lbl.add_css_class('hint-label')
+        self._hint_lbl.set_halign(Gtk.Align.START)
+        self._refresh_hint()
+        card.append(self._hint_lbl)
 
         return card
+
+    def _refresh_hint(self) -> None:
+        save_key = self._app.settings.get('save_hotkey', 'F9') or '—'
+        dur = self._fmt(self._app.settings.get('clip_duration', 60))
+        self._hint_lbl.set_text(t('dash.hotkey_hint', key=save_key, dur=dur))
+
+    def _on_setting_changed(self, key: str, value) -> None:
+        if key in ('save_hotkey', 'clip_duration'):
+            self._refresh_hint()
 
     # ── Public state setters ───────────────────────────────────────────────────
 

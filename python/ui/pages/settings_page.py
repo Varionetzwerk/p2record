@@ -62,6 +62,14 @@ class HotkeyEntry(Gtk.Entry):
         if not self._capturing:
             return False
 
+        # BackSpace/Delete clears the hotkey entirely
+        if keyval in (Gdk.KEY_BackSpace, Gdk.KEY_Delete):
+            self._value = ''
+            self._capturing = False
+            self._update_display()
+            self.emit('activate')
+            return True
+
         ignored = {
             Gdk.KEY_Control_L, Gdk.KEY_Control_R,
             Gdk.KEY_Alt_L, Gdk.KEY_Alt_R,
@@ -192,10 +200,13 @@ class SettingsPage(Gtk.Box):
             if 0 <= sel < len(options):
                 name = options[sel][0]
                 self._set('capture_monitor', name)
-                # On X11 restart immediately; on Wayland the portal handles screen
-                # selection so a restart is not meaningful here.
                 import os
-                if not os.environ.get('WAYLAND_DISPLAY') and self._app.recorder.is_recording:
+                if os.environ.get('WAYLAND_DISPLAY'):
+                    # The portal restores the previous screen silently via the
+                    # saved token — delete it so the picker dialog reappears.
+                    from core.portal import clear_restore_token
+                    clear_restore_token()
+                if self._app.recorder.is_recording:
                     self._app.recorder.stop()
                     self._app.recorder.start()
 
@@ -254,6 +265,15 @@ class SettingsPage(Gtk.Box):
         clip_row.append(clip_scale)
         clip_row.append(self._clip_lbl)
         box.append(self._row(t('settings.rec.clip'), t('settings.rec.clip_hint'), clip_row))
+
+        # Clip length can never exceed the ring buffer — keep the upper bound in sync
+        def _sync_clip_upper(adj):
+            upper = int(adj.get_value())
+            self._clip_adj.set_upper(upper)
+            if self._clip_adj.get_value() > upper:
+                self._clip_adj.set_value(upper)
+        self._buf_adj.connect('value-changed', _sync_clip_upper)
+        _sync_clip_upper(self._buf_adj)
 
         quality_combo = self._combo(
             [('low',    t('settings.rec.quality_low')),

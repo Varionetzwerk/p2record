@@ -42,6 +42,14 @@ def _save_token(token: str) -> None:
         pass
 
 
+def clear_restore_token() -> None:
+    """Delete the saved restore token so the portal dialog appears again."""
+    try:
+        _TOKEN_FILE.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+
 def request_screencast_node(
     callback: Callable[[Optional[int], int, int, int], None],
     stop_event: threading.Event,
