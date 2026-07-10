@@ -98,6 +98,15 @@ _STRINGS: dict = {
     'settings.rec.audio_desktop':   {'de': 'Spielton (Desktop)',            'en': 'Game sound (desktop)'},
     'settings.rec.audio_mic':       {'de': 'Mikrofon',                      'en': 'Microphone'},
     'settings.rec.audio_both':      {'de': 'Beides (Desktop + Mikrofon)',   'en': 'Both (Desktop + Mic)'},
+    'settings.rec.timestamp':       {'de': 'Zeitstempel im Video', 'en': 'Timestamp overlay'},
+    'settings.rec.timestamp_hint':  {'de': 'Blendet Datum + Uhrzeit fest ins Video ein', 'en': 'Burns date + time into the video'},
+    'settings.rec.ts_off':          {'de': 'Aus',           'en': 'Off'},
+    'settings.rec.ts_tl':           {'de': 'Oben links',    'en': 'Top left'},
+    'settings.rec.ts_tc':           {'de': 'Oben mittig',   'en': 'Top center'},
+    'settings.rec.ts_tr':           {'de': 'Oben rechts',   'en': 'Top right'},
+    'settings.rec.ts_bl':           {'de': 'Unten links',   'en': 'Bottom left'},
+    'settings.rec.ts_bc':           {'de': 'Unten mittig',  'en': 'Bottom center'},
+    'settings.rec.ts_br':           {'de': 'Unten rechts',  'en': 'Bottom right'},
 
     # ── Settings — Output ─────────────────────────────────────────────────────
     'settings.output.section': {'de': 'Speicherort',          'en': 'Save location'},

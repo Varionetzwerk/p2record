@@ -12,6 +12,8 @@ DEFAULTS: dict = {
     'save_hotkey': 'F9',
     'toggle_hotkey': '',
     'audio_source': 'desktop',  # 'none' | 'desktop' | 'mic' | 'both'
+    'timestamp_position': 'off',  # 'off' | 'top-left' | 'top-center' | 'top-right'
+                                  # | 'bottom-left' | 'bottom-center' | 'bottom-right'
     'capture_monitor': '',      # monitor name, e.g. "HDMI-A-1"; '' = primary
     'minimize_to_tray': True,
     'show_notifications': True,

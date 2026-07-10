@@ -310,7 +310,27 @@ class SettingsPage(Gtk.Box):
         )
         box.append(self._row(t('settings.rec.audio'), t('settings.rec.audio_hint'), audio_combo))
 
+        ts_combo = self._combo(
+            [('off',           t('settings.rec.ts_off')),
+             ('top-left',      t('settings.rec.ts_tl')),
+             ('top-center',    t('settings.rec.ts_tc')),
+             ('top-right',     t('settings.rec.ts_tr')),
+             ('bottom-left',   t('settings.rec.ts_bl')),
+             ('bottom-center', t('settings.rec.ts_bc')),
+             ('bottom-right',  t('settings.rec.ts_br'))],
+            s.get('timestamp_position', 'off'),
+            self._on_timestamp_changed,
+        )
+        box.append(self._row(t('settings.rec.timestamp'), t('settings.rec.timestamp_hint'), ts_combo))
+
         return box
+
+    def _on_timestamp_changed(self, value: str) -> None:
+        self._set('timestamp_position', value)
+        # Overlay is baked into the FFmpeg pipeline — restart to apply now
+        if self._app.recorder.is_recording:
+            self._app.recorder.stop()
+            self._app.recorder.start()
 
     def _build_output_section(self) -> Gtk.Widget:
         box = self._section(t('settings.output.section'))
